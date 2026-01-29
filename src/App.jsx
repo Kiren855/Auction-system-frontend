@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage';
 import MainLayout from './layouts/MainLayout';
 import { Rotate3D } from 'lucide-react';
 import RegisterPage from './pages/RegisterPage';
+import SellerLayout from './layouts/SellerLayout';
+import SellerDashboard from './pages/SellerDashboard';
 
 function App() {
   return (
@@ -20,9 +22,11 @@ function App() {
 
           {/* Private Routes*/}
           <Route element={<ProtectedRoute />}>
-            {/* <Route element={<SellerLayout />}>
-              <Route path="/seller/dashboard" element={<Dashboard />} />
-            </Route> */}
+            <Route path="/seller" element={<SellerLayout />}>
+              <Route path="dashboard" element={<SellerDashboard />} />
+              <Route path="auctions" element={<div>My Auctions List Page</div>} />
+    <Route path="create" element={<div>Create New Auction Form</div>} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>
