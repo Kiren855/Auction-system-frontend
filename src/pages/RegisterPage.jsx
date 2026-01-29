@@ -38,7 +38,7 @@ const RegisterPage = () => {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
-        <div className="max-w-[440px] w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10 text-center">
+        <div className="max-w-110 w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-50 text-green-500 rounded-full mb-6">
             <CheckCircle2 size={32} />
           </div>
@@ -51,7 +51,7 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 font-sans">
-      <div className="max-w-[480px] w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
+      <div className="max-w-120 w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
         
         <div className="mb-8 text-left">
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create Account</h1>

@@ -34,7 +34,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 font-sans">
-      <div className="max-w-[440px] w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
+      <div className="max-w-110 w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
         
         {/* Header Section */}
         <div className="mb-8 text-left">
