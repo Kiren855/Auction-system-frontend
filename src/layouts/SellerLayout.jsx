@@ -35,19 +35,19 @@ const SellerLayout = () => {
   const menuItems = [
     {
       icon: <LayoutDashboard size={20} />,
-      label: 'Overview',
+      label: 'Tổng quan',
       path: '/seller/dashboard',
     },
     {
       icon: <Gavel size={20} />,
-      label: 'My Auctions',
+      label: 'Phiên đấu giá của tôi',
       path: '/seller/auctions',
     },
-    {
-      icon: <Settings size={20} />,
-      label: 'Settings',
-      path: '/seller/settings',
-    },
+    // {
+    //   icon: <Settings size={20} />,
+    //   label: 'Settings',
+    //   path: '/seller/settings',
+    // },
   ];
 
   return (
