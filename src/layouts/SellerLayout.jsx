@@ -159,7 +159,7 @@ const SellerLayout = () => {
                 <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 py-2 z-50 animate-in fade-in zoom-in duration-200">
                   <button
                     onClick={() => {
-                      navigate('/seller/profile');
+                      navigate('/profile');
                       setIsProfileOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
