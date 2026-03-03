@@ -199,7 +199,7 @@ export default function CreateAuctionAuctionPage() {
                 className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Lưu ý: Hệ thống sẽ gửi lên dạng ISO Instant (UTC).
+                {/* Lưu ý: Hệ thống sẽ gửi lên dạng ISO Instant (UTC). */}
               </p>
             </div>
 

@@ -31,7 +31,7 @@ export function useServerCountdown(auctions, serverTime) {
 
     if (auction.status === 'PENDING') {
       target = startMs;
-    } else if (auction.status === 'ACTIVE') {
+    } else if (auction.status === 'ONGOING') {
       target = endMs;
     } else {
       return '00:00:00';

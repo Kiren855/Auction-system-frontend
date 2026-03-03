@@ -74,8 +74,10 @@ export default function AuctionList() {
       CREATED: 'Đã tạo',
       PENDING: 'Sắp diễn ra',
       ONGOING: 'Đang diễn ra',
-      COMPLETED: 'Đã hoàn thành',
+      FINISHED: 'Đã hoàn thành',
       CANCELLED: 'Đã huỷ',
+      APPROVED: 'Được chấp nhận',
+      REJECTED: 'Bị từ chối',
     };
 
     return map[String(status || '').toUpperCase()] || status;
