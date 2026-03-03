@@ -183,7 +183,7 @@ const SellerLayout = () => {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="px-8">
           <Outlet />
         </div>
       </main>

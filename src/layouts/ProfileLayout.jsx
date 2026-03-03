@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { User, MapPin, Settings, Menu } from 'lucide-react';
+import { User, MapPin, Settings, Menu, ArrowLeft } from 'lucide-react';
 
 const ProfileLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
@@ -74,13 +75,22 @@ const ProfileLayout = () => {
           isCollapsed ? 'ml-20' : 'ml-64'
         }`}
       >
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center">
-          <h2 className="text-lg font-bold text-slate-800">
-            Tài khoản của tôi
-          </h2>
+        <header className="h-20 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/seller/dashboard')}
+              className="p-2 rounded-lg hover:bg-gray-100 transition"
+            >
+              <ArrowLeft size={20} className="text-gray-600" />
+            </button>
+
+            <h2 className="text-lg font-semibold text-gray-900">
+              Tài khoản của tôi
+            </h2>
+          </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-0">
           <Outlet />
         </div>
       </main>

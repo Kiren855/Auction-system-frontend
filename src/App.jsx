@@ -13,6 +13,7 @@ import AuctionDetail from './pages/seller/auction-detail';
 import ProfileLayout from './layouts/ProfileLayout';
 import ProfileInfo from './pages/profile/ProfileInfo';
 import ProfileAddressPage from './pages/profile-address/ProfileAddressPage';
+import SellerAuctionPage from './pages/seller/SellerAuctionPage';
 
 function App() {
   return (
@@ -30,7 +31,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/seller" element={<SellerLayout />}>
               <Route path="dashboard" element={<SellerDashboard />} />
-              <Route path="auctions" element={<MyAuctions />} />
+              <Route path="auctions" element={<SellerAuctionPage />} />
               <Route path="create" element={<CreateAuction />} />
               <Route path="auctions/:auctionId" element={<AuctionDetail />} />
             </Route>
