@@ -33,7 +33,32 @@ export const auctionApi = {
     return axiosClient.get('/auction/api/v1/categories');
   },
 
+  /////////////////////////// PRODUCT
   getAllProducts: () => {
     return axiosClient.get('/auction/api/v1/products');
+  },
+
+  getAllProductPage: (page = 0, size = 10) => {
+    return axiosClient.get('/auction/api/v1/products/list', {
+      params: { page, size },
+    });
+  },
+
+  getDetailProduct: (productId) => {
+    return axiosClient.get(`/auction/api/v1/products/${productId}`);
+  },
+
+  deleteProduct: (productId) => {
+    return axiosClient.delete(`/auction/api/v1/products/${productId}`);
+  },
+
+  /////////////////
+
+  startAuction: (auctionId) => {
+    return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/start`);
+  },
+
+  cancelAuction: (auctionId) => {
+    return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/cancel`);
   },
 };

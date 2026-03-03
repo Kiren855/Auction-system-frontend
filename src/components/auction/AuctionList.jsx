@@ -60,7 +60,7 @@ export default function AuctionList() {
     switch (status) {
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'ACTIVE':
+      case 'ONGOING':
         return 'bg-green-100 text-green-700 border-green-200';
       case 'ENDED':
         return 'bg-gray-100 text-gray-500 border-gray-200';
@@ -69,9 +69,21 @@ export default function AuctionList() {
     }
   };
 
+  const getVietnameseStatus = (status) => {
+    const map = {
+      CREATED: 'Đã tạo',
+      PENDING: 'Sắp diễn ra',
+      ONGOING: 'Đang diễn ra',
+      COMPLETED: 'Đã hoàn thành',
+      CANCELLED: 'Đã huỷ',
+    };
+
+    return map[String(status || '').toUpperCase()] || status;
+  };
+
   const getCountdownLabel = (status) => {
     if (status === 'PENDING') return 'Bắt đầu sau';
-    if (status === 'ACTIVE') return 'Còn lại';
+    if (status === 'ONGOING') return 'Còn lại';
     return '';
   };
 
@@ -121,9 +133,12 @@ export default function AuctionList() {
                 return (
                   <div
                     key={auction.id}
+                    onDoubleClick={() =>
+                      navigate(`/seller/auctions/${auction.id}`)
+                    }
                     className="group bg-gray-50 border border-gray-200 rounded-xl p-6
-                      hover:bg-white hover:shadow-lg hover:border-gray-300
-                      transition-all duration-200"
+    hover:bg-white hover:shadow-lg hover:border-gray-300
+    transition-all duration-200 cursor-pointer"
                   >
                     <div className="flex justify-between items-start gap-6">
                       {/* LEFT */}
@@ -139,7 +154,7 @@ export default function AuctionList() {
                               auction.status,
                             )}`}
                           >
-                            {auction.status}
+                            {getVietnameseStatus(auction.status)}
                           </span>
                         </div>
 

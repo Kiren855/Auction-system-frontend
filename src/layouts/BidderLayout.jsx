@@ -8,12 +8,12 @@ import {
   Menu,
   Bell,
   User,
-  Package,
-  DollarSign,
+  History,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const SellerLayout = () => {
+const BidderLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,38 +35,36 @@ const SellerLayout = () => {
   const menuItems = [
     {
       icon: <LayoutDashboard size={20} />,
-      label: 'Tổng quan',
-      path: '/seller/dashboard',
+      label: 'Trang chủ',
+      path: '/bidder/dashboard',
     },
     {
       icon: <Gavel size={20} />,
       label: 'Phiên đấu giá của tôi',
-      path: '/seller/auctions',
+      path: '/bidder/auctions',
     },
     {
-      icon: <Package size={20} />,
-      label: 'Sản phẩm',
-      path: '/seller/products',
+      icon: <History size={20} />,
+      label: 'Lịch sử đấu giá',
+      path: '/bidder/history',
     },
-    {
-      icon: <DollarSign size={20} />,
-      label: 'Doanh thu',
-      path: '/seller/revenue',
-    },
+    // {
+    //   icon: <Trophy size={20} />,
+    //   label: 'Da trung dau gia',
+    //   path: '/bidder/won',
+    // },
   ];
 
   const handleGoDashboard = () => {
     setIsProfileOpen(false);
-    navigate('/bidder/dashboard');
+    navigate('/seller/dashboard');
   };
 
   return (
     <div className="flex min-h-screen bg-[#F1F5F9]">
-      {/* --- Sidebar --- */}
       <aside
         className={`${isCollapsed ? 'w-20' : 'w-64'} bg-slate-900 transition-all duration-300 flex flex-col fixed inset-y-0 z-50`}
       >
-        {/* Sidebar Header */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
           {!isCollapsed && (
             <span className="text-white font-bold tracking-tighter text-xl">
@@ -81,7 +79,6 @@ const SellerLayout = () => {
           </button>
         </div>
 
-        {/* Navigation Links */}
         <nav className="flex-1 py-6 space-y-2 px-3">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -103,29 +100,25 @@ const SellerLayout = () => {
         </nav>
       </aside>
 
-      {/* --- Main Content Area --- */}
       <main
         className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}
       >
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
           <h2 className="text-lg font-bold text-slate-800 tracking-tight">
-            Seller Dashboard
+            Bidder Dashboard
           </h2>
 
           <div className="flex items-center gap-6">
-            {/* Notification Bell */}
             <button className="p-2 text-slate-400 hover:text-slate-900 transition-colors relative">
               <Bell size={20} />
               <span className="absolute top-2 right-2.5 w-2 h-2 bg-amber-500 rounded-full border-2 border-white"></span>
             </button>
 
-            {/* Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-3 p-1.5 pr-3 hover:bg-slate-50 rounded-2xl transition-all border border-transparent hover:border-slate-100"
               >
-                {/* Avatar Circle */}
                 <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm">
                   {user?.avatarUrl ? (
                     <img
@@ -140,7 +133,6 @@ const SellerLayout = () => {
                   )}
                 </div>
 
-                {/* Username & Role */}
                 <div className="text-left hidden sm:block">
                   <p className="text-sm font-bold text-slate-900 leading-none">
                     {user?.username}
@@ -153,7 +145,6 @@ const SellerLayout = () => {
                 />
               </button>
 
-              {/* Dropdown Menu Items */}
               {isProfileOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 py-2 z-50 animate-in fade-in zoom-in duration-200">
                   <button
@@ -161,9 +152,8 @@ const SellerLayout = () => {
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
                     <Gavel size={16} />
-                    Trang đấu giá
+                    Trang Quản lý
                   </button>
-
                   <button
                     onClick={() => {
                       navigate('/profile');
@@ -198,4 +188,4 @@ const SellerLayout = () => {
   );
 };
 
-export default SellerLayout;
+export default BidderLayout;
