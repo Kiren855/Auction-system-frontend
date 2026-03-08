@@ -19,9 +19,9 @@ export default function AuctionList() {
     const res = await auctionApi.getAllSellerAuctions(page, 10);
     const data = res.data;
 
-    setAuctions(data.result.content);
-    setTotalPages(data.result.totalPages);
-    setServerTime(data.server_time);
+    setAuctions(data?.result?.content || []);
+    setTotalPages(data?.result?.totalPages ?? 1);
+    setServerTime(data?.server_time || null);
   };
 
   const { calculateRemaining } = useServerCountdown(auctions, serverTime);
@@ -56,14 +56,25 @@ export default function AuctionList() {
     return parts.join(' ');
   };
 
+  const normalizeStatus = (status) => String(status || '').toUpperCase();
+
+  const isEndedStatus = (status) => {
+    const s = normalizeStatus(status);
+    return s === 'FINISHED' || s === 'CANCELLED';
+  };
+
   const getStatusStyle = (status) => {
-    switch (status) {
+    switch (normalizeStatus(status)) {
+      case 'CREATED':
+        return 'bg-sky-50 text-sky-700 border-sky-200';
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'ONGOING':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'ENDED':
-        return 'bg-gray-100 text-gray-500 border-gray-200';
+        return 'bg-yellow-50 text-yellow-700 border-red-200';
+      case 'FINISHED':
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+      case 'CANCELLED':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
         return 'bg-gray-100 text-gray-600 border-gray-200';
     }
@@ -74,19 +85,37 @@ export default function AuctionList() {
       CREATED: 'Đã tạo',
       PENDING: 'Sắp diễn ra',
       ONGOING: 'Đang diễn ra',
-      FINISHED: 'Đã hoàn thành',
+      FINISHED: 'Đã kết thúc',
       CANCELLED: 'Đã huỷ',
       APPROVED: 'Được chấp nhận',
       REJECTED: 'Bị từ chối',
     };
 
-    return map[String(status || '').toUpperCase()] || status;
+    return map[normalizeStatus(status)] || status;
   };
 
   const getCountdownLabel = (status) => {
-    if (status === 'PENDING') return 'Bắt đầu sau';
-    if (status === 'ONGOING') return 'Còn lại';
+    const s = normalizeStatus(status);
+    if (s === 'PENDING') return 'Bắt đầu sau';
+    if (s === 'ONGOING') return 'Còn lại';
     return '';
+  };
+
+  const getCountdownBoxClasses = (status) => {
+    const s = normalizeStatus(status);
+    if (s === 'PENDING') {
+      return {
+        box: 'bg-emerald-50 border-emerald-100',
+        label: 'text-emerald-500',
+        time: 'text-emerald-700',
+      };
+    }
+    // default: ONGOING (đỏ)
+    return {
+      box: 'bg-red-50 border-red-100',
+      label: 'text-red-400',
+      time: 'text-red-600',
+    };
   };
 
   return (
@@ -100,8 +129,7 @@ export default function AuctionList() {
             </h2>
             <button
               onClick={() => navigate('/seller/auctions/create/product')}
-              className="bg-gray-900 text-white px-5 py-2 rounded-lg 
-               hover:bg-gray-800 transition text-sm font-medium"
+              className="bg-gray-900 text-white px-5 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
             >
               + Tạo phiên đấu giá
             </button>
@@ -121,8 +149,7 @@ export default function AuctionList() {
               </div>
               <button
                 onClick={() => navigate('/seller/auctions/create/product')}
-                className="mt-5 inline-flex items-center justify-center bg-gray-900 text-white px-5 py-2 rounded-lg 
-                 hover:bg-gray-800 transition text-sm font-medium"
+                className="mt-5 inline-flex items-center justify-center bg-gray-900 text-white px-5 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
               >
                 + Tạo phiên đấu giá
               </button>
@@ -131,6 +158,8 @@ export default function AuctionList() {
             <div className="space-y-5">
               {auctions.map((auction) => {
                 const remaining = calculateRemaining(auction);
+                const ended = isEndedStatus(auction.status);
+                const countdownCls = getCountdownBoxClasses(auction.status);
 
                 return (
                   <div
@@ -138,9 +167,7 @@ export default function AuctionList() {
                     onDoubleClick={() =>
                       navigate(`/seller/auctions/${auction.id}`)
                     }
-                    className="group bg-gray-50 border border-gray-200 rounded-xl p-6
-    hover:bg-white hover:shadow-lg hover:border-gray-300
-    transition-all duration-200 cursor-pointer"
+                    className="group bg-gray-50 border border-gray-200 rounded-xl p-6 hover:bg-white hover:shadow-lg hover:border-gray-300 transition-all duration-200 cursor-pointer"
                   >
                     <div className="flex justify-between items-start gap-6">
                       {/* LEFT */}
@@ -187,18 +214,23 @@ export default function AuctionList() {
 
                       {/* RIGHT: Countdown */}
                       <div className="shrink-0">
-                        {auction.status !== 'ENDED' ? (
-                          <div className="bg-red-50 border border-red-100 px-6 py-3 rounded-xl text-center min-w-45">
-                            <div className="text-xs text-red-400 mb-1">
+                        {ended ? (
+                          <div className="text-gray-400 font-medium px-6 py-3"></div>
+                        ) : (
+                          <div
+                            className={`px-6 py-3 rounded-xl text-center min-w-45 border ${countdownCls.box}`}
+                          >
+                            <div
+                              className={`text-xs mb-1 ${countdownCls.label}`}
+                            >
                               {getCountdownLabel(auction.status)}
                             </div>
-                            <div className="text-xl font-mono font-semibold text-red-600 tracking-wide">
+
+                            <div
+                              className={`text-xl font-mono font-semibold tracking-wide ${countdownCls.time}`}
+                            >
                               {remaining}
                             </div>
-                          </div>
-                        ) : (
-                          <div className="text-gray-400 font-medium px-6 py-3">
-                            Đã kết thúc
                           </div>
                         )}
                       </div>

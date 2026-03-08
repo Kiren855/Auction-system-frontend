@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { auctionApi } from '../../api/auctionApi';
+import StatusBadge from '../../components/StatusBadge';
+import AuctionParticipantsTab from '../../components/auction/AuctionParticipantsTab';
 
 const TABS = [
   { key: 'detail', label: 'Chi tiết' },
@@ -39,37 +41,6 @@ function formatDateTimeVN(iso) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function StatusBadge({ status }) {
-  const s = String(status || '').toUpperCase();
-  const cls =
-    s === 'LIVE'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : s === 'ENDED'
-        ? 'bg-slate-100 text-slate-700 border-slate-200'
-        : s === 'CANCELLED'
-          ? 'bg-rose-50 text-rose-700 border-rose-200'
-          : 'bg-amber-50 text-amber-800 border-amber-200';
-
-  const label =
-    s === 'LIVE'
-      ? 'Đang diễn ra'
-      : s === 'ENDED'
-        ? 'Đã kết thúc'
-        : s === 'CANCELLED'
-          ? 'Đã huỷ'
-          : s === 'PENDING'
-            ? 'Sắp diễn ra'
-            : s || '—';
-
-  return (
-    <span
-      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${cls}`}
-    >
-      {label}
-    </span>
-  );
 }
 
 export default function AuctionDetailPage() {
@@ -253,7 +224,7 @@ export default function AuctionDetailPage() {
                 {auction?.title || 'Chi tiết phiên đấu giá'}
               </h1>
               <div className="mt-2 flex items-center gap-3">
-                <StatusBadge status={getVietnameseStatus(auction?.status)} />
+                <StatusBadge status={auction?.status} />
                 <span className="text-sm text-slate-500">
                   Auction ID:{' '}
                   <span className="font-mono">{auction?.id || auctionId}</span>
@@ -561,10 +532,7 @@ export default function AuctionDetailPage() {
                 )}
 
                 {activeTab === 'participants' && (
-                  <EmptyTab
-                    title="Người tham gia"
-                    desc="Tab này tạm thời chưa có dữ liệu."
-                  />
+                  <AuctionParticipantsTab auctionId={auctionId} />
                 )}
 
                 {activeTab === 'abnormal' && (

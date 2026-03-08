@@ -61,4 +61,14 @@ export const auctionApi = {
   cancelAuction: (auctionId) => {
     return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/cancel`);
   },
+
+  getMyParticipatedAuctions: (status, page = 0, size = 10) => {
+    return axiosClient.get('/auction/api/v1/auctions/me/participated', {
+      params: {
+        status,
+        page,
+        size,
+      },
+    });
+  },
 };

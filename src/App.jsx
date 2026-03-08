@@ -17,6 +17,7 @@ import CreateAuctionAuctionPage from './pages/seller/CreateAuctionAuctionPage';
 import AuctionDetailPage from './pages/auction/AuctionDetailPage';
 import ProductListPage from './pages/seller/ProductListPage';
 import BidderHomePage from './pages/bidder/BidderHomePage';
+import MyParticipatedAuctionsPage from './pages/bidder/MyParticipatedAuctionsPage';
 
 function App() {
   return (
@@ -61,7 +62,7 @@ function App() {
 
             <Route path="/bidder" element={<BidderLayout />}>
               <Route path="dashboard" element={<BidderHomePage />} />
-              <Route path="auctions" element={<SellerAuctionPage />} />
+              <Route path="auctions" element={<MyParticipatedAuctionsPage />} />
               <Route path="history" element={<SellerAuctionPage />} />
               <Route path="won" element={<SellerAuctionPage />} />
               <Route
