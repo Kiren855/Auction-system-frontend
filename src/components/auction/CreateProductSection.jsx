@@ -14,8 +14,13 @@ export default function CreateProductSection({ productData, setProductData }) {
   }, []);
 
   const fetchCategories = async () => {
-    const res = await auctionApi.getAllCategories();
-    setCategories(res.data.result);
+    try {
+      const res = await auctionApi.getAllCategories();
+      setCategories(res.data.result || []);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh mục:', error);
+      setCategories([]);
+    }
   };
 
   const handleAttributeChange = (index, field, value) => {
@@ -25,7 +30,11 @@ export default function CreateProductSection({ productData, setProductData }) {
 
     const attributeMap = {};
     updated.forEach((attr) => {
-      if (attr.key) attributeMap[attr.key] = attr.value;
+      const key = String(attr.key || '').trim();
+      const val = String(attr.value || '').trim();
+      if (key) {
+        attributeMap[key] = val;
+      }
     });
 
     setProductData({
@@ -34,8 +43,9 @@ export default function CreateProductSection({ productData, setProductData }) {
     });
   };
 
-  const addAttribute = () =>
+  const addAttribute = () => {
     setAttributes([...attributes, { key: '', value: '' }]);
+  };
 
   const removeAttribute = (index) => {
     const updated = attributes.filter((_, i) => i !== index);
@@ -43,7 +53,11 @@ export default function CreateProductSection({ productData, setProductData }) {
 
     const attributeMap = {};
     updated.forEach((attr) => {
-      if (attr.key) attributeMap[attr.key] = attr.value;
+      const key = String(attr.key || '').trim();
+      const val = String(attr.value || '').trim();
+      if (key) {
+        attributeMap[key] = val;
+      }
     });
 
     setProductData({
@@ -52,7 +66,6 @@ export default function CreateProductSection({ productData, setProductData }) {
     });
   };
 
-  // ===== Images =====
   const images = productData.images || [];
 
   const previews = useMemo(() => {
@@ -63,7 +76,6 @@ export default function CreateProductSection({ productData, setProductData }) {
   }, [images]);
 
   useEffect(() => {
-    // cleanup object URLs
     return () => {
       previews.forEach((p) => URL.revokeObjectURL(p.url));
     };
@@ -74,7 +86,6 @@ export default function CreateProductSection({ productData, setProductData }) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // optional: validate image mime
     const nonImages = files.filter((f) => !f.type?.startsWith('image/'));
     if (nonImages.length) {
       setImageError('Chỉ cho phép upload file hình ảnh.');
@@ -90,6 +101,7 @@ export default function CreateProductSection({ productData, setProductData }) {
     }
 
     const toAdd = files.slice(0, remaining);
+
     if (files.length > remaining) {
       setImageError(
         `Chỉ lấy ${remaining} hình để đủ tối đa ${MAX_IMAGES} hình.`,
@@ -101,103 +113,135 @@ export default function CreateProductSection({ productData, setProductData }) {
       images: [...images, ...toAdd],
     });
 
-    // reset input để chọn lại cùng 1 file vẫn trigger onChange
     e.target.value = '';
   };
 
   const removeImageAt = (index) => {
     const next = images.filter((_, i) => i !== index);
-    setProductData({ ...productData, images: next });
+    setProductData({
+      ...productData,
+      images: next,
+    });
     setImageError('');
   };
-  // ==================
+
+  const requiredLabel = (text) => (
+    <label className="block text-sm font-medium mb-2">
+      {text} <span className="text-red-500">*</span>
+    </label>
+  );
+
+  const optionalLabel = (text) => (
+    <label className="block text-sm font-medium mb-2">{text}</label>
+  );
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 space-y-6">
-      {/* Title */}
+      {/* Tên sản phẩm */}
       <div>
-        <label className="block text-sm font-medium mb-2">Tên sản phẩm</label>
+        {requiredLabel('Tên sản phẩm')}
         <input
           type="text"
           value={productData.itemName || ''}
           onChange={(e) =>
             setProductData({ ...productData, itemName: e.target.value })
           }
-          className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          placeholder="Nhập tên sản phẩm"
+          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
         />
       </div>
 
-      {/* Category */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Danh mục</label>
-        <select
-          value={productData.categoryId || ''}
-          onChange={(e) => {
-            const selectedId = e.target.value;
+      {/* Danh mục + Tình trạng */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          {requiredLabel('Danh mục')}
+          <select
+            value={productData.categoryId || ''}
+            onChange={(e) => {
+              const selectedId = e.target.value;
+              const selectedCategory = categories.find(
+                (cat) => String(cat.id) === String(selectedId),
+              );
 
-            const selectedCategory = categories.find(
-              (cat) => cat.id === selectedId,
-            );
+              setProductData({
+                ...productData,
+                categoryId: selectedId,
+                categoryName: selectedCategory?.name || '',
+              });
+            }}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            <option value="">-- Chọn danh mục --</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            setProductData({
-              ...productData,
-              categoryId: selectedId,
-              categoryName: selectedCategory?.name || '',
-            });
-          }}
-          className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
-        >
-          <option value="">-- Chọn danh mục --</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        <div>
+          {requiredLabel('Tình trạng')}
+          <select
+            value={productData.condition || ''}
+            onChange={(e) =>
+              setProductData({ ...productData, condition: e.target.value })
+            }
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            <option value="">-- Chọn tình trạng --</option>
+            <option value="NEW">Hàng mới</option>
+            <option value="USED">Hàng đã qua sử dụng</option>
+          </select>
+        </div>
       </div>
 
       {/* Brand */}
       <div>
-        <label className="block text-sm font-medium mb-2">Thương hiệu</label>
+        {requiredLabel('Thương hiệu')}
         <input
           type="text"
           value={productData.brand || ''}
           onChange={(e) =>
             setProductData({ ...productData, brand: e.target.value })
           }
-          className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          placeholder="Nhập thương hiệu"
+          className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
         />
       </div>
 
-      {/* Condition */}
+      {/* Description */}
       <div>
-        <label className="block text-sm font-medium mb-2">Tình trạng</label>
-        <select
-          value={productData.condition || ''}
+        {optionalLabel('Mô tả sản phẩm')}
+        <textarea
+          rows={5}
+          value={productData.description || ''}
           onChange={(e) =>
-            setProductData({ ...productData, condition: e.target.value })
+            setProductData({ ...productData, description: e.target.value })
           }
-          className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
-        >
-          <option value="">-- Chọn tình trạng --</option>
-          <option value="NEW">Hàng mới</option>
-          <option value="USED">Hàng đã qua sử dụng</option>
-        </select>
+          placeholder="Nhập mô tả chi tiết về sản phẩm..."
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
+        />
       </div>
 
       {/* Images */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium">Hình ảnh sản phẩm</label>
+          <label className="block text-sm font-medium">
+            Hình ảnh sản phẩm <span className="text-red-500">*</span>
+          </label>
           <div className="text-xs text-gray-500">
             {images.length}/{MAX_IMAGES}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <label
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white text-sm cursor-pointer hover:shadow-sm
-              ${images.length >= MAX_IMAGES ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white text-sm hover:shadow-sm ${
+              images.length >= MAX_IMAGES
+                ? 'opacity-50 cursor-not-allowed'
+                : 'cursor-pointer'
+            }`}
           >
             <span>📷</span>
             <span>Chọn ảnh</span>
@@ -212,7 +256,7 @@ export default function CreateProductSection({ productData, setProductData }) {
           </label>
 
           <p className="text-xs text-gray-500">
-            PNG/JPG/WebP • tối đa {MAX_IMAGES} ảnh
+            PNG/JPG/WebP • tối đa {MAX_IMAGES} ảnh • tối thiểu 1 ảnh
           </p>
         </div>
 
@@ -234,8 +278,7 @@ export default function CreateProductSection({ productData, setProductData }) {
                 <button
                   type="button"
                   onClick={() => removeImageAt(idx)}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition
-                    bg-white/90 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-800 hover:bg-white"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition bg-white/90 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-800 hover:bg-white"
                 >
                   Xoá
                 </button>
@@ -245,10 +288,10 @@ export default function CreateProductSection({ productData, setProductData }) {
         )}
       </div>
 
-      {/* Attributes dynamic */}
+      {/* Attributes */}
       <div>
         <div className="flex justify-between items-center mb-3">
-          <label className="text-sm font-medium">Thuộc tính sản phẩm</label>
+          {optionalLabel('Thuộc tính sản phẩm')}
           <button
             type="button"
             onClick={addAttribute}
@@ -260,7 +303,10 @@ export default function CreateProductSection({ productData, setProductData }) {
 
         <div className="space-y-3">
           {attributes.map((attr, index) => (
-            <div key={index} className="flex gap-3 items-center">
+            <div
+              key={index}
+              className="flex flex-col md:flex-row gap-3 md:items-center"
+            >
               <input
                 type="text"
                 placeholder="Tên thuộc tính (vd: Màu)"
@@ -268,7 +314,7 @@ export default function CreateProductSection({ productData, setProductData }) {
                 onChange={(e) =>
                   handleAttributeChange(index, 'key', e.target.value)
                 }
-                className="flex-1 border rounded-lg px-3 py-2"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
               />
               <input
                 type="text"
@@ -277,14 +323,14 @@ export default function CreateProductSection({ productData, setProductData }) {
                 onChange={(e) =>
                   handleAttributeChange(index, 'value', e.target.value)
                 }
-                className="flex-1 border rounded-lg px-3 py-2"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
               />
 
               {attributes.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeAttribute(index)}
-                  className="text-red-500 text-sm"
+                  className="shrink-0 text-red-500 text-sm px-2 py-2"
                 >
                   X
                 </button>

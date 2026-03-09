@@ -5,8 +5,14 @@ import { useCreateAuction } from '../../context/CreateAuctionContext';
 
 export default function CreateAuctionAuctionPage() {
   const navigate = useNavigate();
-  const { mode, selectedProductId, productData, auctionData, setAuctionData } =
-    useCreateAuction();
+  const {
+    mode,
+    selectedProductId,
+    selectedProductName,
+    productData,
+    auctionData,
+    setAuctionData,
+  } = useCreateAuction();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -16,13 +22,25 @@ export default function CreateAuctionAuctionPage() {
     return 'Sản phẩm mới';
   }, [mode]);
 
+  const thumbnailPreview = useMemo(() => {
+    if (!auctionData.thumbnail) return '';
+    return URL.createObjectURL(auctionData.thumbnail);
+  }, [auctionData.thumbnail]);
+
   const canSubmit = useMemo(() => {
+    const startPrice = Number(auctionData.startPrice);
+    const stepPrice = Number(auctionData.stepPrice);
+    const durationMinutes = Number(auctionData.durationMinutes);
+
     const okAuction =
-      auctionData.title &&
-      auctionData.startPrice &&
-      auctionData.stepPrice &&
+      String(auctionData.title || '').trim() &&
       auctionData.startAt &&
-      auctionData.durationMinutes;
+      Number.isFinite(startPrice) &&
+      startPrice > 0 &&
+      Number.isFinite(stepPrice) &&
+      stepPrice > 0 &&
+      Number.isFinite(durationMinutes) &&
+      durationMinutes >= 20;
 
     const okProduct =
       mode === 'existing'
@@ -35,34 +53,36 @@ export default function CreateAuctionAuctionPage() {
   const buildFormData = () => {
     const fd = new FormData();
 
-    // itemId: chỉ gửi khi dùng existing
     if (mode === 'existing') {
       fd.append('itemId', selectedProductId);
     } else {
-      // product fields chỉ khi tạo mới
       fd.append('itemName', productData.itemName || '');
       fd.append('categoryId', productData.categoryId || '');
       fd.append('brand', productData.brand || '');
       fd.append('condition', productData.condition || '');
+      fd.append('description', productData.description || '');
 
       Object.entries(productData.attributes || {}).forEach(([k, v]) => {
         fd.append(`attributes[${k}]`, v ?? '');
       });
 
       (productData.images || []).forEach((file) => {
-        fd.append('images', file); // List<MultipartFile> images
+        fd.append('images', file);
       });
     }
 
-    fd.append('title', String(auctionData.title));
+    fd.append('title', String(auctionData.title || '').trim());
     fd.append('startPrice', String(auctionData.startPrice));
     fd.append('stepPrice', String(auctionData.stepPrice));
 
-    // datetime-local -> ISO Instant
     const isoStart = new Date(auctionData.startAt).toISOString();
     fd.append('startAt', isoStart);
 
     fd.append('durationMinutes', String(auctionData.durationMinutes));
+
+    if (auctionData.thumbnail) {
+      fd.append('thumbnail', auctionData.thumbnail);
+    }
 
     return fd;
   };
@@ -84,6 +104,78 @@ export default function CreateAuctionAuctionPage() {
       setSubmitting(false);
     }
   };
+
+  const handlePositiveNumberChange = (field, value) => {
+    if (value === '') {
+      setAuctionData({ ...auctionData, [field]: '' });
+      return;
+    }
+
+    if (!/^\d*\.?\d*$/.test(value)) return;
+
+    setAuctionData({
+      ...auctionData,
+      [field]: value,
+    });
+  };
+
+  const handlePositiveNumberBlur = (field, minValue = 0) => {
+    const rawValue = auctionData[field];
+
+    if (rawValue === '' || rawValue === null || rawValue === undefined) return;
+
+    let numericValue = Number(rawValue);
+
+    if (!Number.isFinite(numericValue)) {
+      numericValue = minValue;
+    }
+
+    if (numericValue < minValue) {
+      numericValue = minValue;
+    }
+
+    setAuctionData({
+      ...auctionData,
+      [field]: String(numericValue),
+    });
+  };
+
+  const handleThumbnailChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type?.startsWith('image/')) {
+      setError('Thumbnail phải là file hình ảnh.');
+      e.target.value = '';
+      return;
+    }
+
+    setError('');
+    setAuctionData({
+      ...auctionData,
+      thumbnail: file,
+    });
+
+    e.target.value = '';
+  };
+
+  const removeThumbnail = () => {
+    setAuctionData({
+      ...auctionData,
+      thumbnail: null,
+    });
+  };
+
+  const requiredLabel = (text) => (
+    <label className="block text-sm font-medium mb-2">
+      {text} <span className="text-red-500">*</span>
+    </label>
+  );
+
+  const optionalLabel = (text) => (
+    <label className="block text-sm font-medium mb-2">{text}</label>
+  );
 
   return (
     <div className="bg-gray-100 min-h-screen py-10">
@@ -107,7 +199,7 @@ export default function CreateAuctionAuctionPage() {
                   <div className="mt-1">
                     <div className="font-semibold text-gray-900">
                       Sản phẩm:{' '}
-                      <span className="font-mono">{selectedProductId}</span>
+                      <span className="font-mono">{selectedProductName}</span>
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
                       (Hệ thống sẽ dùng sản phẩm đã có để tạo phiên)
@@ -140,9 +232,7 @@ export default function CreateAuctionAuctionPage() {
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* auction title */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">
-                Tiêu đề phiên đấu giá
-              </label>
+              {requiredLabel('Tiêu đề phiên đấu giá')}
               <input
                 type="text"
                 value={auctionData.title || ''}
@@ -153,18 +243,60 @@ export default function CreateAuctionAuctionPage() {
                 placeholder="VD: Đấu giá iPhone 14 Pro Max - bản 256GB"
               />
             </div>
+
+            {/* thumbnail */}
+            <div className="md:col-span-2">
+              {optionalLabel('Ảnh thumbnail')}
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-white text-sm cursor-pointer hover:shadow-sm">
+                  <span>🖼️</span>
+                  <span>Chọn thumbnail</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailChange}
+                    className="hidden"
+                  />
+                </label>
+
+                <p className="text-xs text-gray-500">
+                  Ảnh đại diện cho phiên đấu giá, không bắt buộc
+                </p>
+              </div>
+
+              {thumbnailPreview && (
+                <div className="mt-4">
+                  <div className="relative w-48 group">
+                    <img
+                      src={thumbnailPreview}
+                      alt="thumbnail-preview"
+                      className="h-32 w-48 object-cover rounded-xl border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeThumbnail}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition bg-white/90 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-800 hover:bg-white"
+                    >
+                      Xoá
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* startPrice */}
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Giá khởi điểm
-              </label>
+              {requiredLabel('Giá khởi điểm')}
               <input
                 type="number"
                 min="0"
-                value={auctionData.startPrice}
+                step="1"
+                inputMode="numeric"
+                value={auctionData.startPrice || ''}
                 onChange={(e) =>
-                  setAuctionData({ ...auctionData, startPrice: e.target.value })
+                  handlePositiveNumberChange('startPrice', e.target.value)
                 }
+                onBlur={() => handlePositiveNumberBlur('startPrice', 1)}
                 className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 placeholder="VD: 100000"
               />
@@ -172,14 +304,17 @@ export default function CreateAuctionAuctionPage() {
 
             {/* stepPrice */}
             <div>
-              <label className="block text-sm font-medium mb-2">Bước giá</label>
+              {requiredLabel('Bước giá')}
               <input
                 type="number"
                 min="0"
-                value={auctionData.stepPrice}
+                step="1"
+                inputMode="numeric"
+                value={auctionData.stepPrice || ''}
                 onChange={(e) =>
-                  setAuctionData({ ...auctionData, stepPrice: e.target.value })
+                  handlePositiveNumberChange('stepPrice', e.target.value)
                 }
+                onBlur={() => handlePositiveNumberBlur('stepPrice', 1)}
                 className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 placeholder="VD: 5000"
               />
@@ -192,37 +327,32 @@ export default function CreateAuctionAuctionPage() {
               </label>
               <input
                 type="datetime-local"
-                value={auctionData.startAt}
+                value={auctionData.startAt || ''}
                 onChange={(e) =>
                   setAuctionData({ ...auctionData, startAt: e.target.value })
                 }
                 className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
               />
-              <p className="text-xs text-gray-500 mt-2">
-                {/* Lưu ý: Hệ thống sẽ gửi lên dạng ISO Instant (UTC). */}
-              </p>
             </div>
 
             {/* duration */}
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Thời lượng phiên (phút)
-              </label>
+              {requiredLabel('Thời lượng phiên (phút)')}
               <input
                 type="number"
-                min="1"
-                value={auctionData.durationMinutes}
+                min="20"
+                step="1"
+                inputMode="numeric"
+                value={auctionData.durationMinutes || ''}
                 onChange={(e) =>
-                  setAuctionData({
-                    ...auctionData,
-                    durationMinutes: e.target.value,
-                  })
+                  handlePositiveNumberChange('durationMinutes', e.target.value)
                 }
+                onBlur={() => handlePositiveNumberBlur('durationMinutes', 20)}
                 className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 placeholder="VD: 60"
               />
               <p className="text-xs text-gray-500 mt-2">
-                VD: 60 = 1 tiếng, 1440 = 1 ngày.
+                Tối thiểu 20 phút. VD: 60 = 1 tiếng, 1440 = 1 ngày.
               </p>
             </div>
           </div>

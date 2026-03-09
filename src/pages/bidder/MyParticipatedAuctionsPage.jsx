@@ -287,7 +287,9 @@ export default function MyParticipatedAuctionsPage() {
                 return (
                   <div
                     key={auctionId}
-                    onDoubleClick={() => navigate(`/auctions/${auctionId}`)}
+                    onDoubleClick={() =>
+                      navigate(`/bidder/auctions/${auctionId}`)
+                    }
                     className="group bg-gray-50 border border-gray-200 rounded-xl p-5
              hover:bg-white hover:shadow-lg hover:border-gray-300
              transition-all duration-200 cursor-pointer"

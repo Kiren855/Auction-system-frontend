@@ -12,6 +12,8 @@ export default function CreateAuctionProductPage() {
     setMode,
     selectedProductId,
     setSelectedProductId,
+    selectedProductName,
+    setSelectedProductName,
     productData,
     setProductData,
   } = useCreateAuction();
@@ -20,10 +22,10 @@ export default function CreateAuctionProductPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState('');
 
-  const selectedProduct = useMemo(
-    () => products.find((p) => p.id === selectedProductId),
-    [products, selectedProductId],
-  );
+  // const selectedProduct = useMemo(
+  //   () => products.find((p) => p.id === selectedProductId),
+  //   [products, selectedProductId],
+  // );
 
   const fetchProducts = async () => {
     try {
@@ -181,7 +183,14 @@ export default function CreateAuctionProductPage() {
                   <div className="relative">
                     <select
                       value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      onChange={(e) => {
+                        const id = e.target.value;
+
+                        const product = products.find((p) => p.id === id);
+
+                        setSelectedProductId(id);
+                        setSelectedProductName(product?.itemName || '');
+                      }}
                       disabled={loadingProducts || products.length === 0}
                       className={`w-full appearance-none rounded-xl border bg-white px-4 py-3 pr-10 text-sm outline-none transition
                         ${
@@ -217,17 +226,17 @@ export default function CreateAuctionProductPage() {
                     </div>
                   )}
 
-                  {selectedProductId && selectedProduct && (
+                  {/* {selectedProductId && selectedProduct && (
                     <div className="mt-4 rounded-xl border border-gray-200 bg-white px-4 py-4">
                       <div className="text-sm text-gray-500">Đã chọn</div>
                       <div className="mt-1 font-semibold text-gray-900">
                         {selectedProduct.title}
                       </div>
                       <div className="mt-1 text-xs text-gray-500 break-all">
-                        ID: {selectedProduct.id}
+                        Sản phẩm: {selectedProduct.itemName}
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
             </div>

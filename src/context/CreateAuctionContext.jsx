@@ -5,6 +5,7 @@ const CreateAuctionContext = createContext(null);
 export function CreateAuctionProvider({ children }) {
   const [mode, setMode] = useState('existing'); // existing | new
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedProductName, setSelectedProductName] = useState('');
 
   const [productData, setProductData] = useState({
     itemName: '',
@@ -30,6 +31,8 @@ export function CreateAuctionProvider({ children }) {
       setMode,
       selectedProductId,
       setSelectedProductId,
+      selectedProductName,
+      setSelectedProductName,
       productData,
       setProductData,
       auctionData,
