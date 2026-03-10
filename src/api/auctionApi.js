@@ -71,4 +71,11 @@ export const auctionApi = {
       },
     });
   },
+
+  placeBid: (auctionId, amount) => {
+    return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/bids`, {
+      amount,
+      bidType: 'manual',
+    });
+  },
 };
