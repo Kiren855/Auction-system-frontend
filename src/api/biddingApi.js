@@ -15,4 +15,19 @@ export const biddingApi = {
       `/bidding/api/v1/participants/auctions/${auctionId}/join`,
     );
   },
+
+  getHistoryLatestBids: (auctionId) => {
+    return axiosClient.get(`/bidding/api/v1/auctions/${auctionId}/latest-bids`);
+  },
+
+  getAuctionMessages: (auctionId) => {
+    return axiosClient.get(`/bidding/api/v1/auctions/${auctionId}/messages`);
+  },
+
+  sendAuctionMessage: (auctionId, data) => {
+    return axiosClient.post(
+      `/bidding/api/v1/auctions/${auctionId}/messages`,
+      data,
+    );
+  },
 };

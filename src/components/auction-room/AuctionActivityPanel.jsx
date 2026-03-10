@@ -1,62 +1,195 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Client } from '@stomp/stompjs';
+import { biddingApi } from '../../api/biddingApi';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN').format(Number(value || 0)) + 'đ';
 }
 
-const mockBidHistory = [
-  {
-    id: 1,
-    bidderName: 'bidder***29',
-    amount: 28750000,
-    createdAt: '20:11:22',
-    isLeading: true,
-  },
-  { id: 2, bidderName: 'user***18', amount: 28500000, createdAt: '20:10:58' },
-  { id: 3, bidderName: 'bidder***08', amount: 28250000, createdAt: '20:10:10' },
-  { id: 4, bidderName: 'user***44', amount: 28000000, createdAt: '20:09:01' },
-];
+function formatTime(value) {
+  if (!value) return '--:--:--';
 
-const mockMessages = [
-  {
-    id: 1,
-    sender: 'system',
-    type: 'SYSTEM',
-    content: 'Phiên đấu giá đã bắt đầu.',
-    time: '20:00',
-  },
-  {
-    id: 2,
-    sender: 'Minh',
-    type: 'USER',
-    content: 'Mọi người vào nhanh quá 😄',
-    time: '20:03',
-  },
-  {
-    id: 3,
-    sender: 'system',
-    type: 'SYSTEM',
-    content: 'Một mức giá mới: 1.500.000đ',
-    time: '20:11',
-  },
-];
+  const date = new Date(value);
 
-export default function AuctionActivityPanel({ participantCount }) {
+  return date.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+export default function AuctionActivityPanel({
+  participantCount,
+  auctionId,
+  auctionStatus,
+  currentUserId,
+}) {
   const [activeTab, setActiveTab] = useState('HISTORY');
   const [chatMessage, setChatMessage] = useState('');
+  const [bidHistory, setBidHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+
   const chatEndRef = useRef(null);
   const historyEndRef = useRef(null);
+  const stompClientRef = useRef(null);
 
-  //   useEffect(() => {
-  //     if (activeTab === 'CHAT') {
-  //       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  //     } else {
-  //       historyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  //     }
-  //   }, [activeTab]);
+  useEffect(() => {
+    if (!auctionId) return;
+
+    let isMounted = true;
+
+    const loadLatestBids = async () => {
+      try {
+        setLoadingHistory(true);
+        const response = await biddingApi.getHistoryLatestBids(auctionId);
+        const bids = response?.result || response?.data?.result || [];
+
+        if (isMounted) {
+          setBidHistory(Array.isArray(bids) ? bids : []);
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy lịch sử giá:', error);
+        if (isMounted) {
+          setBidHistory([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingHistory(false);
+        }
+      }
+    };
+
+    loadLatestBids();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auctionId]);
+
+  useEffect(() => {
+    if (!auctionId) return;
+
+    let isMounted = true;
+
+    const loadMessages = async () => {
+      try {
+        setLoadingMessages(true);
+        const response = await biddingApi.getAuctionMessages(auctionId);
+        const data = response?.result || response?.data?.result || [];
+
+        if (isMounted) {
+          setMessages(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Lỗi khi lấy lịch sử chat:', error);
+        if (isMounted) {
+          setMessages([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingMessages(false);
+        }
+      }
+    };
+
+    loadMessages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auctionId]);
+
+  useEffect(() => {
+    if (!auctionId || auctionStatus !== 'ONGOING') return;
+
+    const client = new Client({
+      brokerURL: 'ws://localhost:8083/ws',
+      reconnectDelay: 5000,
+      debug: () => {},
+      onConnect: () => {
+        client.subscribe(
+          `/topic/auctions/${auctionId}/latest-bids`,
+          (message) => {
+            try {
+              const newBid = JSON.parse(message.body);
+
+              setBidHistory((prev) => {
+                const filtered = prev.filter((item) => item.id !== newBid.id);
+                return [newBid, ...filtered].slice(0, 5);
+              });
+            } catch (error) {
+              console.error('Lỗi parse bid socket:', error);
+            }
+          },
+        );
+
+        client.subscribe(`/topic/auctions/${auctionId}/chat`, (message) => {
+          try {
+            const newMessage = JSON.parse(message.body);
+
+            setMessages((prev) => {
+              const exists = prev.some((item) => item.id === newMessage.id);
+              if (exists) return prev;
+              return [...prev, newMessage];
+            });
+          } catch (error) {
+            console.error('Lỗi parse chat socket:', error);
+          }
+        });
+      },
+      onStompError: (frame) => {
+        console.error('STOMP error:', frame);
+      },
+      onWebSocketError: (error) => {
+        console.error('WebSocket error:', error);
+      },
+      onWebSocketClose: (event) => {
+        console.error('WebSocket closed:', event);
+      },
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+        stompClientRef.current = null;
+      }
+    };
+  }, [auctionId, auctionStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'CHAT') {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, activeTab]);
+
+  const handleSendMessage = async () => {
+    const trimmed = chatMessage.trim();
+
+    if (!trimmed || !auctionId || sendingMessage) return;
+
+    try {
+      setSendingMessage(true);
+
+      await biddingApi.sendAuctionMessage(auctionId, {
+        content: trimmed,
+      });
+
+      setChatMessage('');
+    } catch (error) {
+      console.error('Lỗi khi gửi tin nhắn:', error);
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   return (
-    <div className="bg-white rounded-[28px] border border-slate-200 shadow-sm flex flex-col flex-1 min-h-100 overflow-hidden">
+    <div className="bg-white rounded-[28px] border border-slate-200 shadow-sm flex flex-col min-h-130 overflow-hidden">
       <div className="flex border-b border-slate-200 px-2 pt-2 bg-slate-50 shrink-0">
         <button
           onClick={() => setActiveTab('HISTORY')}
@@ -84,66 +217,104 @@ export default function AuctionActivityPanel({ participantCount }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-white p-4 relative">
+      <div className="flex-1 min-h-0 overflow-y-auto bg-white p-4 relative">
         {activeTab === 'HISTORY' && (
           <div className="space-y-2">
-            {mockBidHistory.map((bid) => (
-              <div
-                key={bid.id}
-                className={`rounded-xl border px-3 py-3 transition-colors ${
-                  bid.isLeading
-                    ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-slate-100 bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-slate-800 truncate">
-                        {bid.bidderName}
-                      </span>
-
-                      {bid.isLeading && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold">
-                          Dẫn đầu
+            {loadingHistory ? (
+              <div className="text-sm text-slate-500 text-center py-6">
+                Đang tải lịch sử giá...
+              </div>
+            ) : bidHistory.length === 0 ? (
+              <div className="text-sm text-slate-500 text-center py-6">
+                Chưa có lịch sử đấu giá.
+              </div>
+            ) : (
+              bidHistory.map((bid, index) => (
+                <div
+                  key={bid.id}
+                  className={`rounded-xl border px-3 py-3 transition-colors ${
+                    index === 0
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : 'border-slate-100 bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-slate-800 truncate">
+                          {bid.bidderMaskedName}
                         </span>
-                      )}
+
+                        {index === 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold">
+                            Mới nhất
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-slate-500 mt-1">
+                        {formatTime(bid.activatedAt)}
+                      </div>
                     </div>
 
-                    <div className="text-xs text-slate-500 mt-1">
-                      {bid.createdAt}
+                    <div className="text-sm font-bold text-slate-900">
+                      {formatCurrency(bid.amount)}
                     </div>
-                  </div>
-
-                  <div className="text-sm font-bold text-slate-900">
-                    {formatCurrency(bid.amount)}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
             <div ref={historyEndRef} />
           </div>
         )}
 
         {activeTab === 'CHAT' && (
-          <div className="space-y-3 pb-16">
-            {mockMessages.map((msg) =>
-              msg.type === 'SYSTEM' ? (
-                <div key={msg.id} className="flex justify-center">
-                  <div className="max-w-[90%] text-center text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-1.5">
-                    {msg.content}
+          <div className="space-y-3 pb-3">
+            {loadingMessages ? (
+              <div className="text-sm text-slate-500 text-center py-6">
+                Đang tải đoạn chat...
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-sm text-slate-500 text-center py-6">
+                Chưa có tin nhắn nào.
+              </div>
+            ) : (
+              messages.map((msg) => {
+                if (msg.messageType === 'SYSTEM') {
+                  return (
+                    <div key={msg.id} className="flex justify-center">
+                      <div className="max-w-[90%] text-center text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-1.5">
+                        {msg.content}
+                      </div>
+                    </div>
+                  );
+                }
+
+                const isMine = String(msg.senderId) === String(currentUserId);
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${
+                      isMine ? 'items-end' : 'items-start'
+                    }`}
+                  >
+                    <div className="text-[11px] text-slate-400 mb-1 px-1">
+                      {msg.senderDisplayName} • {formatTime(msg.sentAt)}
+                    </div>
+
+                    <div
+                      className={`max-w-[85%] px-3 py-2 text-sm wrap-break-word shadow-sm ${
+                        isMine
+                          ? 'bg-slate-900 text-white rounded-2xl rounded-br-md'
+                          : 'bg-slate-100 text-slate-700 rounded-2xl rounded-bl-md'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div key={msg.id} className="flex flex-col">
-                  <div className="text-[11px] text-slate-400 mb-1 px-1">
-                    {msg.sender} • {msg.time}
-                  </div>
-                  <div className="self-start max-w-[85%] rounded-2xl bg-slate-100 px-3 py-2 text-sm text-slate-700">
-                    {msg.content}
-                  </div>
-                </div>
-              ),
+                );
+              })
             )}
             <div ref={chatEndRef} />
           </div>
@@ -159,7 +330,8 @@ export default function AuctionActivityPanel({ participantCount }) {
               onChange={(e) => setChatMessage(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  setChatMessage('');
+                  e.preventDefault();
+                  handleSendMessage();
                 }
               }}
               placeholder="Nhập tin nhắn..."
@@ -167,8 +339,13 @@ export default function AuctionActivityPanel({ participantCount }) {
             />
 
             <button
-              className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-colors"
-              onClick={() => setChatMessage('')}
+              disabled={sendingMessage || !chatMessage.trim()}
+              className={`w-8 h-8 rounded-full text-white flex items-center justify-center transition-colors ${
+                sendingMessage || !chatMessage.trim()
+                  ? 'bg-slate-300 cursor-not-allowed'
+                  : 'bg-slate-900 hover:bg-slate-800'
+              }`}
+              onClick={handleSendMessage}
             >
               <svg
                 width="16"
