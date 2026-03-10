@@ -19,6 +19,9 @@ import ProductListPage from './pages/seller/ProductListPage';
 import BidderHomePage from './pages/bidder/BidderHomePage';
 import MyParticipatedAuctionsPage from './pages/bidder/MyParticipatedAuctionsPage';
 import BidderAuctionRoom from './pages/bidder/BidderAuctionRoom';
+import AuctionListPage from './pages/bidder/AuctionListPage';
+import BidderSearchResultPage from './pages/bidder/BidderSearchResultPage';
+import AuctionDetailHomePage from './pages/bidder/AuctionDetailHomePage';
 
 function App() {
   return (
@@ -70,6 +73,20 @@ function App() {
               />
               <Route path="history" element={<SellerAuctionPage />} />
               <Route path="won" element={<SellerAuctionPage />} />
+              <Route
+                path="auctions/:auctionId"
+                element={<AuctionDetailPage />}
+              />
+            </Route>
+
+            <Route path="/home" element={<BidderLayout />}>
+              <Route path="dashboard" element={<BidderHomePage />} />
+              <Route path="auctions" element={<AuctionListPage />} />
+              <Route
+                path="auctions/:auctionId"
+                element={<AuctionDetailHomePage />}
+              />
+              <Route path="search" element={<BidderSearchResultPage />} />
               <Route
                 path="auctions/:auctionId"
                 element={<AuctionDetailPage />}

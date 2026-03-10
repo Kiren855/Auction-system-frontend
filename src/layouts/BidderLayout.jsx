@@ -9,7 +9,6 @@ import {
   Gavel,
   History,
   LayoutDashboard,
-  Trophy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +18,7 @@ const BidderLayout = () => {
   const location = useLocation();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -31,6 +31,15 @@ const BidderLayout = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const keyword = params.get('keyword') || '';
+
+    if (location.pathname === '/bidder/search') {
+      setSearchKeyword(keyword);
+    }
+  }, [location.pathname, location.search]);
 
   const dropdownItems = [
     {
@@ -48,11 +57,6 @@ const BidderLayout = () => {
       path: '/bidder/history',
       icon: <History size={16} />,
     },
-    // {
-    //   label: 'Đã thắng đấu giá',
-    //   path: '/bidder/won',
-    //   icon: <Trophy size={16} />,
-    // },
   ];
 
   const isActivePath = (path) => location.pathname === path;
@@ -72,30 +76,41 @@ const BidderLayout = () => {
     logout();
   };
 
+  const handleSearch = () => {
+    const trimmed = searchKeyword.trim();
+    if (!trimmed) return;
+
+    navigate(`/home/search?keyword=${encodeURIComponent(trimmed)}`);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="h-20 flex items-center justify-between gap-4">
-            {/* Logo */}
+          <div className="flex h-20 items-center justify-between gap-4">
             <button
-              onClick={() => navigate('/bidder/dashboard')}
-              className="flex items-center gap-3 shrink-0"
+              onClick={() => navigate('/home/dashboard')}
+              className="flex shrink-0 items-center gap-3"
             >
-              <div className="w-11 h-11 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-400 shadow-sm">
                 <Gavel size={20} />
               </div>
 
-              <div className="text-left hidden sm:block">
+              <div className="hidden text-left sm:block">
                 <p className="text-lg font-extrabold tracking-tight text-slate-900">
                   Auction
                 </p>
-                <p className="text-xs text-slate-500 -mt-1">Bidder Platform</p>
+                <p className="-mt-1 text-xs text-slate-500">Bidder Platform</p>
               </div>
             </button>
 
-            {/* Search */}
-            <div className="flex-1 max-w-2xl hidden md:block">
+            <div className="hidden max-w-2xl flex-1 md:block">
               <div className="relative">
                 <Search
                   size={18}
@@ -103,46 +118,51 @@ const BidderLayout = () => {
                 />
                 <input
                   type="text"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder="Tìm phiên đấu giá, sản phẩm, thương hiệu..."
-                  className="w-full h-12 pl-11 pr-28 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 text-sm text-slate-700 placeholder:text-slate-400 transition-all"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-28 text-sm text-slate-700 placeholder:text-slate-400 transition-all focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/40"
                 />
-                <button className="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors">
+                <button
+                  onClick={handleSearch}
+                  className="absolute right-2 top-1/2 h-9 -translate-y-1/2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                >
                   Tìm
                 </button>
               </div>
             </div>
 
-            {/* Right */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <button className="relative p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors">
+              <button className="relative rounded-xl p-2.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
                 <Bell size={20} />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 border-2 border-white" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-amber-500" />
               </button>
 
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsProfileOpen((prev) => !prev)}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white pl-2 pr-3 py-1.5 hover:bg-slate-50 transition-all"
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white py-1.5 pl-2 pr-3 transition-all hover:bg-slate-50"
                 >
-                  <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm">
+                  <div className="h-10 w-10 overflow-hidden rounded-xl shadow-sm">
                     {user?.avatarUrl ? (
                       <img
                         src={user.avatarUrl}
                         alt="avatar"
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-slate-900 text-amber-400 flex items-center justify-center font-bold">
+                      <div className="flex h-full w-full items-center justify-center bg-slate-900 font-bold text-amber-400">
                         {user?.username?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                     )}
                   </div>
 
-                  <div className="hidden sm:block text-left">
-                    <p className="text-sm font-bold text-slate-900 leading-none">
+                  <div className="hidden text-left sm:block">
+                    <p className="text-sm font-bold leading-none text-slate-900">
                       {user?.username || 'Người dùng'}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">Bidder</p>
+                    <p className="mt-1 text-xs text-slate-500">Bidder</p>
                   </div>
 
                   <ChevronDown
@@ -154,12 +174,12 @@ const BidderLayout = () => {
                 </button>
 
                 {isProfileOpen && (
-                  <div className="absolute right-0 mt-3 w-72 rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-200/60 py-2 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100">
+                  <div className="absolute right-0 mt-3 w-72 overflow-hidden rounded-2xl border border-slate-100 bg-white py-2 shadow-xl shadow-slate-200/60">
+                    <div className="border-b border-slate-100 px-4 py-3">
                       <p className="text-sm font-bold text-slate-900">
                         {user?.username || 'Người dùng'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         Tài khoản bidder
                       </p>
                     </div>
@@ -172,9 +192,9 @@ const BidderLayout = () => {
                           <button
                             key={item.path}
                             onClick={() => handleNavigate(item.path)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                            className={`flex w-full items-center gap-3 px-4 py-3 text-sm transition-colors ${
                               active
-                                ? 'bg-amber-50 text-amber-700 font-semibold'
+                                ? 'bg-amber-50 font-semibold text-amber-700'
                                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                             }`}
                           >
@@ -186,7 +206,7 @@ const BidderLayout = () => {
 
                       <button
                         onClick={() => handleNavigate('/profile')}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                       >
                         <User size={16} />
                         Thông tin cá nhân
@@ -194,18 +214,18 @@ const BidderLayout = () => {
 
                       <button
                         onClick={handleGoManagement}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                       >
                         <Gavel size={16} />
                         Trang quản lý
                       </button>
                     </div>
 
-                    <div className="h-px bg-slate-100 my-1 mx-3" />
+                    <div className="mx-3 my-1 h-px bg-slate-100" />
 
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition-colors hover:bg-red-50"
                     >
                       <LogOut size={16} />
                       Đăng xuất
@@ -216,7 +236,6 @@ const BidderLayout = () => {
             </div>
           </div>
 
-          {/* Mobile search */}
           <div className="pb-4 md:hidden">
             <div className="relative">
               <Search
@@ -225,10 +244,16 @@ const BidderLayout = () => {
               />
               <input
                 type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="Tìm phiên đấu giá..."
-                className="w-full h-11 pl-11 pr-24 rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 text-sm"
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-24 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
               />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 h-8 px-4 rounded-xl bg-slate-900 text-white text-sm font-semibold">
+              <button
+                onClick={handleSearch}
+                className="absolute right-2 top-1/2 h-8 -translate-y-1/2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white"
+              >
                 Tìm
               </button>
             </div>

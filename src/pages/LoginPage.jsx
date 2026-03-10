@@ -22,8 +22,7 @@ const LoginPage = () => {
     try {
       // data will now contain { email, password }
       await login(data);
-      console.log('login success');
-      navigate('/seller/dashboard');
+      navigate('/home/dashboard');
     } catch (error) {
       setAuthError('Invalid email or password. Please try again.');
       console.error('Login failed:', error);

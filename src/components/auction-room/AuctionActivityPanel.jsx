@@ -106,7 +106,7 @@ export default function AuctionActivityPanel({
     if (!auctionId || auctionStatus !== 'ONGOING') return;
 
     const client = new Client({
-      brokerURL: 'ws://localhost:8083/ws',
+      brokerURL: 'ws://localhost:8082/ws',
       reconnectDelay: 5000,
       debug: () => {},
       onConnect: () => {

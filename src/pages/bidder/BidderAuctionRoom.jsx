@@ -7,6 +7,7 @@ import AuctionProductPanel from '../../components/auction-room/AuctionProductPan
 import AuctionBidPanel from '../../components/auction-room/AuctionBidPanel';
 import AuctionActivityPanel from '../../components/auction-room/AuctionActivityPanel';
 import { auctionApi } from '../../api/auctionApi';
+import { biddingApi } from '../../api/biddingApi';
 import { useAuth } from '../../context/AuthContext';
 
 function calculateRemainingTime(startAt, durationMinutes) {
@@ -284,7 +285,7 @@ export default function BidderAuctionRoom() {
     if (confirmState.mode === 'MANUAL_BID') {
       try {
         setPlacingBid(true);
-        await auctionApi.placeBid(auctionId, Number(bidAmount));
+        await biddingApi.placeBid(auctionId, Number(bidAmount));
 
         closeConfirmModal();
 

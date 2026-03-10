@@ -24,13 +24,44 @@ export const auctionApi = {
   },
 
   getAllSellerAuctions: (page = 0, size = 10) => {
-    return axiosClient.get('/auction/api/v1/auctions', {
+    return axiosClient.get('/auction/api/v1/auctions/seller/me', {
       params: { page, size },
     });
   },
 
   getAllCategories: () => {
     return axiosClient.get('/auction/api/v1/categories');
+  },
+
+  getHomeStats: () => {
+    return axiosClient.get('/auction/api/v1/home/stats');
+  },
+
+  getHomeStats: () => {
+    return axiosClient.get('/auction/api/v1/home/stats');
+  },
+
+  getAuctions: ({
+    status,
+    categoryId,
+    keyword,
+    page = 0,
+    size = 12,
+    sortBy,
+    sortDir = 'asc',
+  } = {}) => {
+    const params = {
+      page,
+      size,
+    };
+
+    if (status) params.status = status;
+    if (categoryId) params.categoryId = categoryId;
+    if (keyword?.trim()) params.keyword = keyword.trim();
+    if (sortBy) params.sortBy = sortBy;
+    if (sortDir) params.sortDir = sortDir;
+
+    return axiosClient.get('/auction/api/v1/auctions', { params });
   },
 
   /////////////////////////// PRODUCT

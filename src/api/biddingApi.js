@@ -3,7 +3,7 @@ import axiosClient from './axiosClient';
 export const biddingApi = {
   getParticipants: (auctionId, page = 0, size = 10, status) => {
     return axiosClient.get(
-      `/bidding/api/v1/participants/auctions/${auctionId}`,
+      `/auction/api/v1/auctions/${auctionId}/participants`,
       {
         params: { page, size, status },
       },
@@ -12,22 +12,28 @@ export const biddingApi = {
 
   joinAuction: (auctionId) => {
     return axiosClient.post(
-      `/bidding/api/v1/participants/auctions/${auctionId}/join`,
+      `/auction/api/v1/auctions/${auctionId}/participants/join`,
     );
   },
-
+  //////////////////////////////////////////////////
   getHistoryLatestBids: (auctionId) => {
-    return axiosClient.get(`/bidding/api/v1/auctions/${auctionId}/latest-bids`);
+    return axiosClient.get(`/auction/api/v1/auctions/${auctionId}/latest-bids`);
   },
 
   getAuctionMessages: (auctionId) => {
-    return axiosClient.get(`/bidding/api/v1/auctions/${auctionId}/messages`);
+    return axiosClient.get(`/auction/api/v1/auctions/${auctionId}/messages`);
   },
 
   sendAuctionMessage: (auctionId, data) => {
     return axiosClient.post(
-      `/bidding/api/v1/auctions/${auctionId}/messages`,
+      `/auction/api/v1/auctions/${auctionId}/messages`,
       data,
     );
+  },
+
+  placeBid: (auctionId, amount) => {
+    return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/place-bid`, {
+      amount,
+    });
   },
 };
