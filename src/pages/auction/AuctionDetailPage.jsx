@@ -455,7 +455,7 @@ export default function AuctionDetailPage() {
 
                         <InfoCard
                           label="Thời lượng"
-                          value={formatDuration(auction?.durationMinutes)}
+                          value={formatDuration(auction?.duration_minutes)}
                         />
                         <InfoCard
                           label="Bắt đầu lúc"
@@ -504,7 +504,7 @@ export default function AuctionDetailPage() {
                           {Object.keys(auction?.item?.attributes || {})
                             .length === 0 ? (
                             <div className="text-slate-500 text-sm">
-                              Chưa có thuộc tính.
+                              Sản phẩm không cung cấp chi tiết thông tin
                             </div>
                           ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

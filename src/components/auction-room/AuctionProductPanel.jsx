@@ -120,16 +120,12 @@ export default function AuctionProductPanel({ auction }) {
                 )}
               </div>
             </div>
-
-            <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {auction.depositStatus === 'PAID' ? 'Đã đặt cọc' : 'Cần đặt cọc'}
-            </span>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 lg:p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="text-lg font-semibold text-slate-800">
-                Thuộc tính sản phẩm
+                Thông tin chi tiết sản phẩm
               </div>
 
               {(auction.attributes || []).length > 5 && (

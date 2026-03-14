@@ -57,7 +57,7 @@ const SellerLayout = () => {
 
   const handleGoDashboard = () => {
     setIsProfileOpen(false);
-    navigate('/bidder/dashboard');
+    navigate('/home/dashboard');
   };
 
   return (

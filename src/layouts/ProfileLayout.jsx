@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { User, MapPin, Settings, Menu, ArrowLeft } from 'lucide-react';
+import { User, MapPin, Settings, Menu, ArrowLeft, Wallet } from 'lucide-react';
 
 const ProfileLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
@@ -20,6 +19,11 @@ const ProfileLayout = () => {
       path: '/profile/address',
     },
     {
+      icon: <Wallet size={20} />,
+      label: 'Nạp tiền',
+      path: '/profile/topup',
+    },
+    {
       icon: <Settings size={20} />,
       label: 'Cài đặt',
       path: '/profile/settings',
@@ -28,7 +32,6 @@ const ProfileLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-[#F1F5F9]">
-      {/* Sidebar */}
       <aside
         className={`${
           isCollapsed ? 'w-20' : 'w-64'
@@ -40,6 +43,7 @@ const ProfileLayout = () => {
               TÀI KHOẢN
             </span>
           )}
+
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="text-slate-400 hover:text-white"
@@ -69,7 +73,6 @@ const ProfileLayout = () => {
         </nav>
       </aside>
 
-      {/* Main content */}
       <main
         className={`flex-1 transition-all duration-300 ${
           isCollapsed ? 'ml-20' : 'ml-64'
@@ -83,7 +86,6 @@ const ProfileLayout = () => {
             >
               <ArrowLeft size={20} className="text-gray-600" />
             </button>
-
             <h2 className="text-lg font-semibold text-gray-900">
               Tài khoản của tôi
             </h2>

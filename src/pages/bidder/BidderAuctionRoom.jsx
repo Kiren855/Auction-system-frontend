@@ -413,33 +413,30 @@ export default function BidderAuctionRoom() {
           <div className="space-y-6">
             <AuctionProductPanel auction={auction} />
           </div>
-          <aside className="lg:sticky lg:top-24 lg:h-[calc(100vh-7rem)]">
-            <div className="flex flex-col gap-6 h-full overflow-y-auto pr-1">
-              <AuctionBidPanel
-                auction={auction}
-                remaining={remaining}
-                bidAmount={bidAmount}
-                setBidAmount={setBidAmount}
-                placingBid={placingBid}
-                autoBidAmount={autoBidAmount}
-                setAutoBidAmount={setAutoBidAmount}
-                autoBidEnabled={autoBidEnabled}
-                savingAutoBid={savingAutoBid}
-                canBid={canBid}
-                onOpenManualBidConfirm={openManualBidConfirm}
-                onOpenAutoBidConfirm={openAutoBidConfirm}
-              />
-
-              <AuctionActivityPanel
-                participantCount={auction.participantCount}
-                auctionId={auction?.id}
-                auctionStatus={auction?.status}
-                currentUserId={user?.userId}
-              />
-            </div>
+          <aside className="lg:sticky lg:top-24">
+            <AuctionBidPanel
+              auction={auction}
+              remaining={remaining}
+              bidAmount={bidAmount}
+              setBidAmount={setBidAmount}
+              placingBid={placingBid}
+              autoBidAmount={autoBidAmount}
+              setAutoBidAmount={setAutoBidAmount}
+              autoBidEnabled={autoBidEnabled}
+              savingAutoBid={savingAutoBid}
+              canBid={canBid}
+              onOpenManualBidConfirm={openManualBidConfirm}
+              onOpenAutoBidConfirm={openAutoBidConfirm}
+            />
           </aside>
         </div>
       </div>
+      <AuctionActivityPanel
+        participantCount={auction.participantCount}
+        auctionId={auction?.id}
+        auctionStatus={auction?.status}
+        currentUserId={user?.userId}
+      />
     </div>
   );
 }

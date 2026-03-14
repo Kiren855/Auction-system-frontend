@@ -57,7 +57,7 @@ export default function AuctionRoomHeader({
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl lg:text-5xl font-bold tracking-tight text-slate-900 wrap-break-word">
+          <h1 className="text-xl lg:text-3xl font-bold tracking-tight text-slate-900 wrap-break-word">
             {title}
           </h1>
 

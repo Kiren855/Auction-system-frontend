@@ -109,4 +109,16 @@ export const auctionApi = {
       bidType: 'manual',
     });
   },
+
+  checkBalance: (auctionId) => {
+    return axiosClient.post(
+      `/auction/api/v1/auctions/${auctionId}/participants/check-balance`,
+    );
+  },
+
+  joinAuction: (auctionId) => {
+    return axiosClient.post(
+      `/auction/api/v1/auctions/${auctionId}/participants/join`,
+    );
+  },
 };

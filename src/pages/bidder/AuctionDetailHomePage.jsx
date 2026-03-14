@@ -578,12 +578,8 @@ export default function AuctionDetailHomePage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-lg font-bold text-slate-900">
-                  Thuộc tính sản phẩm
+                  Thông tin thêm về sản phẩm
                 </h3>
-                <span className="text-xs font-medium text-slate-500">
-                  {Object.keys(auction?.item?.attributes || {}).length} thuộc
-                  tính
-                </span>
               </div>
 
               {Object.keys(auction?.item?.attributes || {}).length === 0 ? (
@@ -599,43 +595,6 @@ export default function AuctionDetailHomePage() {
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 text-lg font-bold text-slate-900">
-                Thông tin thêm
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <InfoRow
-                  icon={<User size={16} />}
-                  label="Seller ID"
-                  value={
-                    <span className="font-mono text-xs">
-                      {auction?.seller_id || '-'}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  icon={<Gavel size={16} />}
-                  label="Mã phiên đấu giá"
-                  value={
-                    <span className="font-mono text-xs">
-                      {auction?.id || auctionId}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  icon={<Clock3 size={16} />}
-                  label="Trạng thái"
-                  value={getStatusText(auction?.status)}
-                />
-                <InfoRow
-                  icon={<CalendarDays size={16} />}
-                  label="Bắt đầu lúc"
-                  value={formatDateTimeVN(auction?.start_at)}
-                />
-              </div>
             </div>
           </div>
         )}

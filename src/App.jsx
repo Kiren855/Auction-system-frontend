@@ -22,6 +22,8 @@ import BidderAuctionRoom from './pages/bidder/BidderAuctionRoom';
 import AuctionListPage from './pages/bidder/AuctionListPage';
 import BidderSearchResultPage from './pages/bidder/BidderSearchResultPage';
 import AuctionDetailHomePage from './pages/bidder/AuctionDetailHomePage';
+import OAuthSuccessPage from './components/OAuthSuccessPage';
+import TopupPage from './pages/payment/TopupPage';
 
 function App() {
   return (
@@ -32,6 +34,7 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<LoginPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/oauth-success" element={<OAuthSuccessPage />} />
             <Route path="/register" element={<RegisterPage />}></Route>
           </Route>
 
@@ -65,7 +68,6 @@ function App() {
             </Route>
 
             <Route path="/bidder" element={<BidderLayout />}>
-              <Route path="dashboard" element={<BidderHomePage />} />
               <Route path="auctions" element={<MyParticipatedAuctionsPage />} />
               <Route
                 path="auctions/:auctionId"
@@ -73,10 +75,6 @@ function App() {
               />
               <Route path="history" element={<SellerAuctionPage />} />
               <Route path="won" element={<SellerAuctionPage />} />
-              <Route
-                path="auctions/:auctionId"
-                element={<AuctionDetailPage />}
-              />
             </Route>
 
             <Route path="/home" element={<BidderLayout />}>
@@ -87,15 +85,12 @@ function App() {
                 element={<AuctionDetailHomePage />}
               />
               <Route path="search" element={<BidderSearchResultPage />} />
-              <Route
-                path="auctions/:auctionId"
-                element={<AuctionDetailPage />}
-              />
             </Route>
 
             <Route path="/profile" element={<ProfileLayout />}>
               <Route index element={<ProfileInfo />} />
               <Route path="address" element={<ProfileAddressPage />} />
+              <Route path="topup" element={<TopupPage />} />
               {/* <Route path="settings" element={<ProfileSettings />} /> */}
             </Route>
           </Route>

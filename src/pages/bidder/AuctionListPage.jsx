@@ -1,16 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Clock3,
-  Gavel,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  LayoutGrid,
-  RefreshCw,
-  Search,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { auctionApi } from '../../api/auctionApi';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import AuctionCard from '../../components/auction/AuctionCard';
 
 const TABS = [
   { key: 'all', label: 'Tất cả' },
@@ -27,61 +20,6 @@ const SORT_OPTIONS = [
   { value: 'createdAt-desc', label: 'Mới nhất' },
 ];
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('vi-VN').format(Number(value || 0)) + ' đ';
-}
-
-function formatDateTime(value) {
-  if (!value) return '--';
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function formatRelativeTimeFromSeconds(seconds) {
-  const total = Math.max(0, Number(seconds || 0));
-
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-
-  if (days > 0) {
-    return `Còn ${days} ngày ${hours} giờ`;
-  }
-
-  const hh = String(hours).padStart(2, '0');
-  const mm = String(minutes).padStart(2, '0');
-  const ss = String(secs).padStart(2, '0');
-
-  return `Còn ${hh}:${mm}:${ss}`;
-}
-
-function getStatusMeta(status) {
-  switch (String(status || '').toUpperCase()) {
-    case 'ONGOING':
-      return {
-        label: 'Đang diễn ra',
-        badge: 'bg-rose-50 text-rose-600 border border-rose-100',
-      };
-    case 'PENDING':
-      return {
-        label: 'Sắp bắt đầu',
-        badge: 'bg-amber-50 text-amber-700 border border-amber-100',
-      };
-    default:
-      return {
-        label: status || 'Không xác định',
-        badge: 'bg-slate-100 text-slate-600 border border-slate-200',
-      };
-  }
-}
-
 function parseSortValue(sortValue) {
   if (!sortValue || sortValue === 'default') {
     return { sortBy: undefined, sortDir: 'asc' };
@@ -95,143 +33,23 @@ function parseSortValue(sortValue) {
 }
 
 function CategorySkeleton() {
-  return <div className="h-11 w-28 rounded-2xl bg-slate-100 animate-pulse" />;
+  return <div className="h-11 w-28 animate-pulse rounded-2xl bg-slate-100" />;
 }
 
 function AuctionCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="h-52 bg-slate-100 animate-pulse" />
+      <div className="h-52 animate-pulse bg-slate-100" />
       <div className="p-5">
-        <div className="h-6 w-24 rounded-full bg-slate-100 animate-pulse" />
-        <div className="mt-4 h-5 w-3/4 rounded bg-slate-100 animate-pulse" />
-        <div className="mt-2 h-5 w-1/2 rounded bg-slate-100 animate-pulse" />
+        <div className="h-6 w-24 animate-pulse rounded-full bg-slate-100" />
+        <div className="mt-4 h-5 w-3/4 animate-pulse rounded bg-slate-100" />
+        <div className="mt-2 h-5 w-1/2 animate-pulse rounded bg-slate-100" />
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
-          <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+          <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
         </div>
-        <div className="mt-4 h-4 w-2/3 rounded bg-slate-100 animate-pulse" />
-        <div className="mt-5 h-11 rounded-2xl bg-slate-100 animate-pulse" />
-      </div>
-    </div>
-  );
-}
-
-function AuctionCard({ auction, onViewDetail, now }) {
-  const statusMeta = getStatusMeta(auction.status);
-
-  const remainingSeconds = useMemo(() => {
-    if (String(auction.status).toUpperCase() !== 'ONGOING') {
-      return Number(auction.remainingSeconds || 0);
-    }
-
-    if (auction.endAt) {
-      const diff = Math.floor((new Date(auction.endAt).getTime() - now) / 1000);
-      return Math.max(0, diff);
-    }
-
-    return Math.max(0, Number(auction.remainingSeconds || 0));
-  }, [auction, now]);
-
-  const timeText =
-    String(auction.status).toUpperCase() === 'ONGOING'
-      ? remainingSeconds > 0
-        ? formatRelativeTimeFromSeconds(remainingSeconds)
-        : 'Đã kết thúc'
-      : String(auction.status).toUpperCase() === 'PENDING'
-        ? `Bắt đầu lúc ${formatDateTime(auction.startAt)}`
-        : '--';
-
-  return (
-    <div className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/70 transition-all duration-300">
-      <div className="relative h-52 overflow-hidden">
-        <img
-          src={
-            auction.thumbnailUrl ||
-            'https://via.placeholder.com/1200x800?text=Auction+Image'
-          }
-          alt={auction.title}
-          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-
-        <div className="absolute left-4 top-4">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${statusMeta.badge}`}
-          >
-            {statusMeta.label}
-          </span>
-        </div>
-
-        <div className="absolute right-4 top-4">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shadow-lg ${
-              String(auction.status).toUpperCase() === 'ONGOING'
-                ? 'bg-rose-600 text-white'
-                : 'bg-slate-950/85 text-white'
-            }`}
-          >
-            <Clock3 size={13} />
-            {timeText}
-          </span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-slate-950/60 to-transparent" />
-      </div>
-
-      <div className="p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {auction.categoryName || 'Chưa có danh mục'}
-          </span>
-        </div>
-
-        <h3 className="min-h-12 text-base font-bold leading-snug text-slate-900 line-clamp-2">
-          {auction.title}
-        </h3>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">Giá hiện tại</p>
-            <p className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">
-              {formatCurrency(auction.currentPrice)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">Bước giá</p>
-            <p className="mt-1 text-lg font-bold tracking-tight text-slate-900">
-              {formatCurrency(auction.stepPrice)}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-          <span className="inline-flex items-center gap-1.5">
-            <Gavel size={15} />
-            {auction.bidCount || 0} lượt bid
-          </span>
-
-          <span className="inline-flex items-center gap-1.5">
-            <Users size={15} />
-            {auction.participantCount || 0} tham gia
-          </span>
-        </div>
-
-        <div className="mt-5 flex items-center gap-3">
-          <button
-            onClick={() => onViewDetail(auction.id)}
-            className="flex-1 h-11 rounded-2xl bg-slate-900 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
-          >
-            {auction.status === 'ONGOING' ? 'Tham gia đấu giá' : 'Xem chi tiết'}
-          </button>
-
-          <button
-            onClick={() => onViewDetail(auction.id)}
-            className="h-11 px-4 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Chi tiết
-          </button>
-        </div>
+        <div className="mt-4 h-4 w-2/3 animate-pulse rounded bg-slate-100" />
+        <div className="mt-5 h-11 animate-pulse rounded-2xl bg-slate-100" />
       </div>
     </div>
   );
@@ -272,7 +90,7 @@ function Pagination({
           <button
             onClick={() => onPageChange(pageNumber - 1)}
             disabled={pageNumber <= 0}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeft size={16} />
             Trước
@@ -325,7 +143,7 @@ function Pagination({
           <button
             onClick={() => onPageChange(pageNumber + 1)}
             disabled={pageNumber >= totalPages - 1}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Sau
             <ChevronRight size={16} />
@@ -369,6 +187,22 @@ export default function AuctionListPage() {
 
   const [now, setNow] = useState(Date.now());
 
+  const [joinModal, setJoinModal] = useState({
+    isOpen: false,
+    loading: false,
+    auctionId: null,
+    auctionTitle: '',
+    auctionPrice: 0,
+  });
+
+  const [insufficientModal, setInsufficientModal] = useState({
+    isOpen: false,
+    loading: false,
+    auctionId: null,
+    auctionTitle: '',
+    auctionPrice: 0,
+  });
+
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now());
@@ -404,9 +238,10 @@ export default function AuctionListPage() {
       const params = {
         page,
         size: 12,
-        sortBy,
-        sortDir,
       };
+
+      if (sortBy) params.sortBy = sortBy;
+      if (sortDir) params.sortDir = sortDir;
 
       if (appliedFilters.tab !== 'all') {
         params.status = appliedFilters.tab;
@@ -490,49 +325,153 @@ export default function AuctionListPage() {
     fetchAuctions();
   };
 
+  const openJoinModal = (auction) => {
+    setJoinModal({
+      isOpen: true,
+      loading: false,
+      auctionId: auction.id,
+      auctionTitle: auction.title,
+      auctionPrice: auction.depositPrice,
+    });
+  };
+
+  const closeJoinModal = () => {
+    if (joinModal.loading) return;
+    setJoinModal({
+      isOpen: false,
+      loading: false,
+      auctionId: null,
+      auctionTitle: '',
+      auctionPrice: 0,
+    });
+  };
+
+  const openInsufficientModal = (auctionId, auctionTitle, auctionPrice) => {
+    setInsufficientModal({
+      isOpen: true,
+      loading: false,
+      auctionId,
+      auctionTitle,
+      auctionPrice,
+    });
+  };
+
+  const closeInsufficientModal = () => {
+    if (insufficientModal.loading) return;
+    setInsufficientModal({
+      isOpen: false,
+      loading: false,
+      auctionId: null,
+      auctionTitle: '',
+      auctionPrice: 0,
+    });
+  };
+
+  const goToAuctionDetail = (auctionId) => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    navigate(`/home/auctions/${auctionId}`);
+  };
+
+  const handleJoinAuctionClick = (auction) => {
+    openJoinModal(auction);
+  };
+
+  const handleConfirmDeposit = async () => {
+    const currentAuctionId = joinModal.auctionId;
+    const currentAuctionTitle = joinModal.auctionTitle;
+    const currentAuctionPrice = joinModal.auctionPrice;
+
+    try {
+      setJoinModal((prev) => ({ ...prev, loading: true }));
+
+      const response = await auctionApi.checkBalance(currentAuctionId);
+      const result = response?.result || response?.data?.result || {};
+      const availableDepositStatus = result?.availableDepositStatus;
+
+      if (availableDepositStatus === 'YES') {
+        const joinResponse = await auctionApi.joinAuction(currentAuctionId);
+        const joinResult =
+          joinResponse?.result || joinResponse?.data?.result || {};
+
+        setJoinModal({
+          isOpen: false,
+          loading: false,
+          auctionId: null,
+          auctionTitle: '',
+          auctionPrice: 0,
+        });
+
+        await fetchAuctions();
+
+        if (joinResult?.paymentUrl) {
+          window.location.href = joinResult.paymentUrl;
+          return;
+        }
+
+        goToAuctionDetail(currentAuctionId);
+        return;
+      }
+
+      setJoinModal({
+        isOpen: false,
+        loading: false,
+        auctionId: null,
+        auctionTitle: '',
+        auctionPrice: 0,
+      });
+
+      openInsufficientModal(
+        currentAuctionId,
+        currentAuctionTitle,
+        currentAuctionPrice,
+      );
+    } catch (error) {
+      console.error('Check balance failed:', error);
+      setJoinModal((prev) => ({ ...prev, loading: false }));
+      alert(
+        error?.response?.data?.message ||
+          'Không thể kiểm tra số dư để tham gia phiên đấu giá.',
+      );
+    }
+  };
+
+  const handleConfirmDirectPayment = async () => {
+    const currentAuctionId = insufficientModal.auctionId;
+
+    try {
+      setInsufficientModal((prev) => ({ ...prev, loading: true }));
+
+      const response = await auctionApi.joinAuction(currentAuctionId);
+      const result = response?.result || response?.data?.result || {};
+      const paymentUrl = result?.paymentUrl;
+
+      setInsufficientModal({
+        isOpen: false,
+        loading: false,
+        auctionId: null,
+        auctionTitle: '',
+        auctionPrice: 0,
+      });
+
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+
+      await fetchAuctions();
+      goToAuctionDetail(currentAuctionId);
+    } catch (error) {
+      console.error('Join auction failed:', error);
+      setInsufficientModal((prev) => ({ ...prev, loading: false }));
+      alert(
+        error?.response?.data?.message || 'Không thể tạo yêu cầu thanh toán.',
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 space-y-8">
-        <section className="relative overflow-hidden rounded-4xl bg-linear-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-8 md:px-10 md:py-10">
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
-          <div className="absolute -left-10 -bottom-16 h-56 w-56 rounded-full bg-sky-400/10 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-amber-300">
-                Danh sách phiên đấu giá
-              </span>
-
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl leading-tight">
-                Khám phá toàn bộ
-                <br />
-                phiên đấu giá đang mở
-              </h1>
-
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                Lọc theo danh mục, trạng thái và sắp xếp để nhanh chóng tìm ra
-                phiên đấu giá phù hợp với bạn.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
-                  <LayoutGrid size={18} />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-300">
-                    Tổng số phiên hiển thị
-                  </p>
-                  <p className="text-2xl font-black text-white">
-                    {auctionsLoading ? '--' : auctionsPage.totalElements}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 md:px-6">
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-6">
             <div>
@@ -620,7 +559,7 @@ export default function AuctionListPage() {
 
                 <button
                   onClick={handleApplyFilters}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800"
                 >
                   <Search size={16} />
                   Tìm kiếm
@@ -628,7 +567,7 @@ export default function AuctionListPage() {
 
                 <button
                   onClick={handleResetFilters}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   Đặt lại
                 </button>
@@ -637,11 +576,11 @@ export default function AuctionListPage() {
           </div>
         </section>
 
-        <section className="rounded-4xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+        <section className="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
-                Kết quả phiên đấu giá
+                Danh sách phiên đấu giá
               </h2>
               <p className="mt-1 text-slate-500">
                 {auctionsLoading
@@ -663,7 +602,7 @@ export default function AuctionListPage() {
 
               <button
                 onClick={handleRetry}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <RefreshCw size={16} />
                 Làm mới
@@ -685,7 +624,7 @@ export default function AuctionListPage() {
               <p className="mt-2 text-sm text-rose-600">{auctionsError}</p>
               <button
                 onClick={handleRetry}
-                className="mt-5 h-11 rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
+                className="mt-5 h-11 rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800"
               >
                 Thử lại
               </button>
@@ -707,8 +646,11 @@ export default function AuctionListPage() {
                   <AuctionCard
                     key={auction.id}
                     auction={auction}
-                    onViewDetail={handleViewDetail}
                     now={now}
+                    onViewDetail={handleViewDetail}
+                    onJoinAuction={handleJoinAuctionClick}
+                    showJoinButton
+                    showDepositPrice
                   />
                 ))}
               </div>
@@ -724,6 +666,30 @@ export default function AuctionListPage() {
           )}
         </section>
       </div>
+
+      <ConfirmModal
+        isOpen={joinModal.isOpen}
+        onClose={closeJoinModal}
+        onConfirm={handleConfirmDeposit}
+        loading={joinModal.loading}
+        title="Xác nhận thanh toán tiền đặt cọc"
+        message={`Bạn có muốn thanh toán số tiền đặt cọc là ${joinModal.auctionPrice} vnđ để tham gia phiên đấu giá "${joinModal.auctionTitle}" không?`}
+        confirmText="Xác nhận"
+        cancelText="Hủy"
+        variant="wallet"
+      />
+
+      <ConfirmModal
+        isOpen={insufficientModal.isOpen}
+        onClose={closeInsufficientModal}
+        onConfirm={handleConfirmDirectPayment}
+        loading={insufficientModal.loading}
+        title="Số dư ví không đủ"
+        message={`Số dư khả dụng trong ví của bạn hiện không đủ để thanh toán tiền đặt cọc cho phiên đấu giá "${insufficientModal.auctionTitle}". Bạn có muốn thanh toán trực tiếp không?`}
+        confirmText="Thanh toán trực tiếp"
+        cancelText="Hủy"
+        variant="payment"
+      />
     </div>
   );
 }

@@ -9,8 +9,21 @@ import {
   Gavel,
   History,
   LayoutDashboard,
+  Wallet,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { paymentApi } from '../api/paymentApi';
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+const getResponseData = (response) =>
+  response?.result || response?.data?.result;
 
 const BidderLayout = () => {
   const { user, logout } = useAuth();
@@ -19,6 +32,9 @@ const BidderLayout = () => {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [wallet, setWallet] = useState(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -41,10 +57,28 @@ const BidderLayout = () => {
     }
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    const fetchWallet = async () => {
+      try {
+        setWalletLoading(true);
+        const response = await paymentApi.getMyWallet();
+        const result = getResponseData(response);
+        setWallet(result || null);
+      } catch (error) {
+        console.error('Get wallet failed:', error);
+        setWallet(null);
+      } finally {
+        setWalletLoading(false);
+      }
+    };
+
+    fetchWallet();
+  }, []);
+
   const dropdownItems = [
     {
       label: 'Trang chủ',
-      path: '/bidder/dashboard',
+      path: '/home/dashboard',
       icon: <LayoutDashboard size={16} />,
     },
     {
@@ -158,11 +192,24 @@ const BidderLayout = () => {
                     )}
                   </div>
 
-                  <div className="hidden text-left sm:block">
-                    <p className="text-sm font-bold leading-none text-slate-900">
+                  <div className="hidden min-w-0 text-left sm:block">
+                    <p className="truncate text-sm font-bold leading-none text-slate-900">
                       {user?.username || 'Người dùng'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">Bidder</p>
+
+                    <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                      <Wallet size={12} />
+                      {walletLoading ? (
+                        <span className="inline-flex items-center gap-1 text-slate-500">
+                          <Loader2 size={12} className="animate-spin" />
+                          Đang tải ví...
+                        </span>
+                      ) : (
+                        <span className="truncate font-medium">
+                          {formatCurrency(wallet?.availableBalance || 0)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <ChevronDown
@@ -174,14 +221,29 @@ const BidderLayout = () => {
                 </button>
 
                 {isProfileOpen && (
-                  <div className="absolute right-0 mt-3 w-72 overflow-hidden rounded-2xl border border-slate-100 bg-white py-2 shadow-xl shadow-slate-200/60">
-                    <div className="border-b border-slate-100 px-4 py-3">
-                      <p className="text-sm font-bold text-slate-900">
-                        {user?.username || 'Người dùng'}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Tài khoản bidder
-                      </p>
+                  <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white py-2 shadow-xl shadow-slate-200/60">
+                    <div className="border-b border-slate-100 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 overflow-hidden rounded-xl shadow-sm">
+                          {user?.avatarUrl ? (
+                            <img
+                              src={user.avatarUrl}
+                              alt="avatar"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-slate-900 font-bold text-amber-400">
+                              {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900">
+                            {user?.username || 'Người dùng'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="py-2">
