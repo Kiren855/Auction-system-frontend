@@ -15,9 +15,11 @@ export const biddingApi = {
       `/auction/api/v1/auctions/${auctionId}/participants/join`,
     );
   },
-  //////////////////////////////////////////////////
+
   getHistoryLatestBids: (auctionId) => {
-    return axiosClient.get(`/auction/api/v1/auctions/${auctionId}/latest-bids`);
+    return axiosClient.get(
+      `/auction/api/v1/auctions/${auctionId}/bidding/latest`,
+    );
   },
 
   getAuctionMessages: (auctionId) => {
@@ -32,8 +34,32 @@ export const biddingApi = {
   },
 
   placeBid: (auctionId, amount) => {
-    return axiosClient.post(`/auction/api/v1/auctions/${auctionId}/place-bid`, {
-      amount,
-    });
+    return axiosClient.post(
+      `/auction/api/v1/auctions/${auctionId}/bidding/manual`,
+      {
+        amount,
+      },
+    );
+  },
+
+  createOrUpdateAutoBid: (auctionId, maxBidAmount) => {
+    return axiosClient.post(
+      `/auction/api/v1/auctions/${auctionId}/bidding/auto-bid`,
+      {
+        maxBidAmount,
+      },
+    );
+  },
+
+  disableAutoBid: (auctionId) => {
+    return axiosClient.delete(
+      `/auction/api/v1/auctions/${auctionId}/bidding/auto-bid`,
+    );
+  },
+
+  getMyAutoBidStatus: (auctionId) => {
+    return axiosClient.get(
+      `/auction/api/v1/auctions/${auctionId}/bidding/auto-bid/me`,
+    );
   },
 };

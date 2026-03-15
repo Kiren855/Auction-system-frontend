@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import ConfirmModal from '../../components/ConfirmModal';
 import NotificationToast from '../../components/NotificationToast';
@@ -10,11 +10,10 @@ import { auctionApi } from '../../api/auctionApi';
 import { biddingApi } from '../../api/biddingApi';
 import { useAuth } from '../../context/AuthContext';
 
-function calculateRemainingTime(startAt, durationMinutes) {
-  if (!startAt || !durationMinutes) return '--:--:--';
+function calculateRemainingTime(startAt, endAt) {
+  if (!startAt || !endAt) return '--:--:--';
 
-  const start = new Date(startAt).getTime();
-  const end = start + Number(durationMinutes) * 60 * 1000;
+  const end = new Date(endAt).getTime();
   const now = Date.now();
   const diff = end - now;
 
@@ -35,8 +34,75 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN').format(Number(value || 0)) + 'đ';
 }
 
+function getResponseData(response) {
+  return response?.result || response?.data?.result || null;
+}
+
+function normalizeAuctionDetail(data) {
+  if (!data) return null;
+
+  const currentPrice = Number(
+    data.currentPrice ??
+      data.current_price ??
+      data.startPrice ??
+      data.start_price ??
+      0,
+  );
+  const stepPrice = Number(data.stepPrice ?? data.step_price ?? 0);
+  const startPrice = Number(data.startPrice ?? data.start_price ?? 0);
+  const minNextPrice = currentPrice + stepPrice;
+
+  const item = data.item || {};
+
+  const images = Array.isArray(item.images)
+    ? [...item.images]
+        .sort(
+          (a, b) =>
+            (a.displayOrder ?? a.display_order ?? 0) -
+            (b.displayOrder ?? b.display_order ?? 0),
+        )
+        .map((img) => img.imageUrl || img.image_url)
+        .filter(Boolean)
+    : [];
+
+  const attributes = item.attributes
+    ? Object.entries(item.attributes).map(([key, value]) => ({
+        key,
+        value: String(value ?? ''),
+      }))
+    : [];
+
+  return {
+    id: data.id,
+    title: data.title,
+    status: data.status,
+    sellerName: data.sellerName ?? data.seller_name ?? 'Người bán',
+    sellerId: data.sellerId ?? data.seller_id,
+    itemName: item.itemName ?? item.item_name ?? data.title ?? '',
+    brand: item.brand ?? '',
+    condition: item.condition ?? '',
+    category: item.categoryName ?? item.category_name ?? '',
+    description: item.description ?? data.description ?? '',
+    startAt: data.startAt ?? data.start_at,
+    endAt: data.endAt ?? data.end_at,
+    durationMinutes: Number(data.durationMinutes ?? data.duration_minutes ?? 0),
+    startPrice,
+    currentPrice,
+    stepPrice,
+    minNextPrice,
+    highestBidderId: data.highestBidderId ?? data.highest_bidder_id ?? null,
+    participantCount: Number(
+      data.participantCount ?? data.participant_count ?? 0,
+    ),
+    bidCount: Number(data.bidCount ?? data.bid_count ?? 0),
+    attributes,
+    images,
+  };
+}
+
 export default function BidderAuctionRoom() {
   const { auctionId } = useParams();
+  const { user } = useAuth();
 
   const [auction, setAuction] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,8 +112,9 @@ export default function BidderAuctionRoom() {
   const [placingBid, setPlacingBid] = useState(false);
 
   const [autoBidAmount, setAutoBidAmount] = useState('');
-  const [autoBidEnabled, setAutoBidEnabled] = useState(false);
+  const [autoBidStatus, setAutoBidStatus] = useState(null);
   const [savingAutoBid, setSavingAutoBid] = useState(false);
+  const [disablingAutoBid, setDisablingAutoBid] = useState(false);
 
   const [confirmState, setConfirmState] = useState({
     isOpen: false,
@@ -60,135 +127,144 @@ export default function BidderAuctionRoom() {
 
   const [notifications, setNotifications] = useState([]);
 
-  const { user } = useAuth();
+  const pushNotification = useCallback(
+    ({ type = 'info', title = 'Thông báo', message = '', duration = 3500 }) => {
+      const id = `${Date.now()}-${Math.random()}`;
+      setNotifications((prev) => [...prev, { id, type, title, message }]);
 
-  const pushNotification = ({
-    type = 'info',
-    title = 'Thông báo',
-    message = '',
-    duration = 3500,
-  }) => {
-    const id = `${Date.now()}-${Math.random()}`;
-
-    setNotifications((prev) => [...prev, { id, type, title, message }]);
-
-    window.setTimeout(() => {
-      setNotifications((prev) => prev.filter((item) => item.id !== id));
-    }, duration);
-  };
+      window.setTimeout(() => {
+        setNotifications((prev) => prev.filter((item) => item.id !== id));
+      }, duration);
+    },
+    [],
+  );
 
   const removeNotification = (id) => {
     setNotifications((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const loadAuction = async ({
-    keepBidValue = false,
-    keepAutoBidValue = false,
-  } = {}) => {
-    try {
-      setLoading(true);
+  const loadAuctionRoom = useCallback(
+    async ({ keepBidValue = false, keepAutoBidValue = false } = {}) => {
+      try {
+        setLoading(true);
 
-      const res = await auctionApi.getAuctionDetail(auctionId);
-      const data = res?.data?.result;
+        const [auctionRes, autoBidRes] = await Promise.allSettled([
+          auctionApi.getAuctionDetail(auctionId),
+          biddingApi.getMyAutoBidStatus(auctionId),
+        ]);
 
-      if (!data) {
+        const auctionData =
+          auctionRes.status === 'fulfilled'
+            ? getResponseData(auctionRes.value)
+            : null;
+
+        if (!auctionData) {
+          setAuction(null);
+          return;
+        }
+
+        const normalizedAuction = normalizeAuctionDetail(auctionData);
+        setAuction(normalizedAuction);
+
+        setRemaining(
+          calculateRemainingTime(
+            normalizedAuction.startAt,
+            normalizedAuction.endAt,
+          ),
+        );
+
+        if (!keepBidValue) {
+          setBidAmount(String(normalizedAuction.minNextPrice));
+        } else {
+          setBidAmount((prev) =>
+            prev && Number(prev) >= normalizedAuction.minNextPrice
+              ? prev
+              : String(normalizedAuction.minNextPrice),
+          );
+        }
+
+        let latestAutoBidStatus = null;
+
+        if (autoBidRes.status === 'fulfilled') {
+          latestAutoBidStatus = getResponseData(autoBidRes.value);
+          setAutoBidStatus(latestAutoBidStatus);
+        } else {
+          setAutoBidStatus({
+            enabled: false,
+            maxBidAmount: null,
+            currentlyLeading:
+              String(normalizedAuction.highestBidderId || '') ===
+              String(user?.userId || ''),
+            currentlyOutbid: false,
+            currentPrice: normalizedAuction.currentPrice,
+            highestBidderId: normalizedAuction.highestBidderId,
+          });
+        }
+
+        if (!keepAutoBidValue) {
+          if (
+            latestAutoBidStatus?.enabled &&
+            latestAutoBidStatus?.maxBidAmount != null
+          ) {
+            setAutoBidAmount(String(latestAutoBidStatus.maxBidAmount));
+          } else {
+            setAutoBidAmount(
+              String(
+                normalizedAuction.minNextPrice +
+                  normalizedAuction.stepPrice * 3,
+              ),
+            );
+          }
+        } else {
+          setAutoBidAmount((prev) => {
+            if (prev && Number(prev) >= normalizedAuction.minNextPrice) {
+              return prev;
+            }
+
+            if (
+              latestAutoBidStatus?.enabled &&
+              latestAutoBidStatus?.maxBidAmount != null
+            ) {
+              return String(latestAutoBidStatus.maxBidAmount);
+            }
+
+            return String(
+              normalizedAuction.minNextPrice + normalizedAuction.stepPrice * 3,
+            );
+          });
+        }
+      } catch (error) {
+        console.error('Load auction room error:', error);
         setAuction(null);
-        return;
+        pushNotification({
+          type: 'error',
+          title: 'Tải dữ liệu thất bại',
+          message: 'Không thể tải thông tin phiên đấu giá.',
+        });
+      } finally {
+        setLoading(false);
       }
-
-      const currentPrice = Number(data.current_price ?? data.start_price ?? 0);
-      const stepPrice = Number(data.step_price ?? 0);
-      const minNextPrice = currentPrice + stepPrice;
-
-      const normalizedAuction = {
-        id: data.id,
-        title: data.title,
-        status: data.status,
-        sellerName: data.seller_name,
-        sellerId: data.seller_id,
-        itemName: data.item?.item_name || '',
-        brand: data.item?.brand || '',
-        condition: data.item?.condition || '',
-        category: data.item?.category_name || '',
-        description: data.item?.description || '',
-        startAt: data.start_at,
-        durationMinutes: Number(data.duration_minutes || 0),
-        startPrice: Number(data.start_price || 0),
-        currentPrice,
-        stepPrice,
-        minNextPrice,
-        depositStatus: 'PAID',
-        participantCount: 18,
-        highestBidderName: 'bidder***29',
-        attributes: Object.entries(data.item?.attributes || {}).map(
-          ([key, value]) => ({
-            key,
-            value: String(value ?? ''),
-          }),
-        ),
-        images:
-          data.item?.images
-            ?.sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-            .map((img) => img.image_url)
-            .filter(Boolean) || [],
-      };
-
-      setAuction(normalizedAuction);
-
-      setRemaining(
-        calculateRemainingTime(
-          normalizedAuction.startAt,
-          normalizedAuction.durationMinutes,
-        ),
-      );
-
-      if (!keepBidValue) {
-        setBidAmount(String(minNextPrice));
-      } else {
-        setBidAmount((prev) =>
-          prev && Number(prev) >= minNextPrice ? prev : String(minNextPrice),
-        );
-      }
-
-      if (!keepAutoBidValue) {
-        setAutoBidAmount(String(minNextPrice + stepPrice * 3));
-      } else {
-        setAutoBidAmount((prev) =>
-          prev && Number(prev) >= minNextPrice
-            ? prev
-            : String(minNextPrice + stepPrice * 3),
-        );
-      }
-    } catch (error) {
-      console.error('Load auction detail error:', error);
-      setAuction(null);
-      pushNotification({
-        type: 'error',
-        title: 'Tải dữ liệu thất bại',
-        message: 'Không thể tải thông tin phiên đấu giá.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [auctionId, pushNotification, user?.userId],
+  );
 
   useEffect(() => {
-    loadAuction();
-  }, [auctionId]);
+    loadAuctionRoom();
+  }, [loadAuctionRoom]);
 
   useEffect(() => {
-    if (!auction?.startAt || !auction?.durationMinutes) return;
+    if (!auction?.startAt || !auction?.endAt) return;
 
     const timer = setInterval(() => {
-      setRemaining(
-        calculateRemainingTime(auction.startAt, auction.durationMinutes),
-      );
+      setRemaining(calculateRemainingTime(auction.startAt, auction.endAt));
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [auction?.startAt, auction?.durationMinutes]);
+  }, [auction?.startAt, auction?.endAt]);
 
-  const canBid = auction?.status === 'ONGOING' && remaining !== '00:00:00';
+  const canBid = useMemo(() => {
+    return auction?.status === 'ONGOING' && remaining !== '00:00:00';
+  }, [auction?.status, remaining]);
 
   const openManualBidConfirm = () => {
     if (!auction || !bidAmount) return;
@@ -217,9 +293,7 @@ export default function BidderAuctionRoom() {
       isOpen: true,
       mode: 'MANUAL_BID',
       title: 'Xác nhận đặt giá',
-      message: `Bạn có chắc muốn đặt giá ${formatCurrency(
-        bidAmount,
-      )} cho phiên đấu giá này không?`,
+      message: `Bạn có chắc muốn đặt giá ${formatCurrency(amount)} cho phiên đấu giá này không?`,
       confirmText: 'Đặt giá ngay',
       type: 'primary',
     });
@@ -243,32 +317,40 @@ export default function BidderAuctionRoom() {
       pushNotification({
         type: 'warning',
         title: 'Mức tối đa chưa hợp lệ',
-        message: `Mức tối đa phải từ ${formatCurrency(
-          auction.minNextPrice,
-        )} trở lên.`,
+        message: `Mức tối đa phải từ ${formatCurrency(auction.minNextPrice)} trở lên.`,
       });
       return;
     }
 
+    const enabled = !!autoBidStatus?.enabled;
+
     setConfirmState({
       isOpen: true,
       mode: 'AUTO_BID',
-      title: autoBidEnabled ? 'Cập nhật auto bid' : 'Bật auto bid',
-      message: autoBidEnabled
-        ? `Bạn có muốn cập nhật mức tối đa auto bid thành ${formatCurrency(
-            autoBidAmount,
-          )} không?`
-        : `Bạn có muốn bật auto bid với mức tối đa ${formatCurrency(
-            autoBidAmount,
-          )} không?`,
-      confirmText: autoBidEnabled ? 'Cập nhật' : 'Bật auto bid',
+      title: enabled ? 'Cập nhật auto bid' : 'Bật auto bid',
+      message: enabled
+        ? `Bạn có muốn cập nhật mức tối đa auto bid thành ${formatCurrency(amount)} không?`
+        : `Bạn có muốn bật auto bid với mức tối đa ${formatCurrency(amount)} không?`,
+      confirmText: enabled ? 'Cập nhật' : 'Bật auto bid',
       type: 'success',
     });
   };
 
-  const closeConfirmModal = () => {
-    if (placingBid || savingAutoBid) return;
+  const openDisableAutoBidConfirm = () => {
+    if (!autoBidStatus?.enabled) return;
 
+    setConfirmState({
+      isOpen: true,
+      mode: 'DISABLE_AUTO_BID',
+      title: 'Tắt auto bid',
+      message:
+        'Bạn có chắc muốn tắt chế độ auto bid cho phiên đấu giá này không?',
+      confirmText: 'Tắt auto bid',
+      type: 'danger',
+    });
+  };
+
+  const resetConfirmState = () => {
     setConfirmState({
       isOpen: false,
       mode: null,
@@ -279,6 +361,11 @@ export default function BidderAuctionRoom() {
     });
   };
 
+  const closeConfirmModal = () => {
+    if (placingBid || savingAutoBid || disablingAutoBid) return;
+    resetConfirmState();
+  };
+
   const handleConfirmAction = async () => {
     if (!confirmState.mode) return;
 
@@ -287,7 +374,7 @@ export default function BidderAuctionRoom() {
         setPlacingBid(true);
         await biddingApi.placeBid(auctionId, Number(bidAmount));
 
-        closeConfirmModal();
+        resetConfirmState();
 
         pushNotification({
           type: 'success',
@@ -295,13 +382,13 @@ export default function BidderAuctionRoom() {
           message: `Bạn đã đặt giá ${formatCurrency(bidAmount)}.`,
         });
 
-        await loadAuction({ keepBidValue: false, keepAutoBidValue: true });
+        await loadAuctionRoom({ keepBidValue: false, keepAutoBidValue: true });
       } catch (error) {
         const message =
           error?.response?.data?.message ||
-          'Đặt giá thất bại. Giá có thể đã thay đổi.';
+          'Đặt giá thất bại. Giá hiện tại có thể đã thay đổi.';
 
-        closeConfirmModal();
+        resetConfirmState();
 
         pushNotification({
           type: 'error',
@@ -309,7 +396,7 @@ export default function BidderAuctionRoom() {
           message,
         });
 
-        await loadAuction({ keepBidValue: false, keepAutoBidValue: true });
+        await loadAuctionRoom({ keepBidValue: false, keepAutoBidValue: true });
       } finally {
         setPlacingBid(false);
       }
@@ -321,34 +408,70 @@ export default function BidderAuctionRoom() {
       try {
         setSavingAutoBid(true);
 
-        // TODO: nối API auto bid thật
-        // await auctionApi.enableAutoBid(auctionId, Number(autoBidAmount));
+        await biddingApi.createOrUpdateAutoBid(
+          auctionId,
+          Number(autoBidAmount),
+        );
 
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        setAutoBidEnabled(true);
-        closeConfirmModal();
+        resetConfirmState();
 
         pushNotification({
           type: 'success',
-          title: autoBidEnabled
+          title: autoBidStatus?.enabled
             ? 'Cập nhật auto bid thành công'
             : 'Bật auto bid thành công',
           message: `Mức tối đa hiện tại là ${formatCurrency(autoBidAmount)}.`,
         });
+
+        await loadAuctionRoom({ keepBidValue: true, keepAutoBidValue: true });
       } catch (error) {
         const message =
           error?.response?.data?.message || 'Không thể lưu cấu hình auto bid.';
 
-        closeConfirmModal();
+        resetConfirmState();
 
         pushNotification({
           type: 'error',
           title: 'Auto bid thất bại',
           message,
         });
+
+        await loadAuctionRoom({ keepBidValue: true, keepAutoBidValue: true });
       } finally {
         setSavingAutoBid(false);
+      }
+
+      return;
+    }
+
+    if (confirmState.mode === 'DISABLE_AUTO_BID') {
+      try {
+        setDisablingAutoBid(true);
+
+        await biddingApi.disableAutoBid(auctionId);
+
+        resetConfirmState();
+
+        pushNotification({
+          type: 'success',
+          title: 'Đã tắt auto bid',
+          message: 'Cấu hình auto bid của bạn đã được tắt.',
+        });
+
+        await loadAuctionRoom({ keepBidValue: true, keepAutoBidValue: false });
+      } catch (error) {
+        const message =
+          error?.response?.data?.message || 'Không thể tắt auto bid lúc này.';
+
+        resetConfirmState();
+
+        pushNotification({
+          type: 'error',
+          title: 'Tắt auto bid thất bại',
+          message,
+        });
+      } finally {
+        setDisablingAutoBid(false);
       }
     }
   };
@@ -391,12 +514,12 @@ export default function BidderAuctionRoom() {
         title={confirmState.title}
         message={confirmState.message}
         confirmText={
-          placingBid || savingAutoBid
+          placingBid || savingAutoBid || disablingAutoBid
             ? 'Đang xử lý...'
             : confirmState.confirmText
         }
         cancelText="Hủy"
-        isLoading={placingBid || savingAutoBid}
+        isLoading={placingBid || savingAutoBid || disablingAutoBid}
         type={confirmState.type}
       />
 
@@ -413,6 +536,7 @@ export default function BidderAuctionRoom() {
           <div className="space-y-6">
             <AuctionProductPanel auction={auction} />
           </div>
+
           <aside className="lg:sticky lg:top-24">
             <AuctionBidPanel
               auction={auction}
@@ -422,15 +546,18 @@ export default function BidderAuctionRoom() {
               placingBid={placingBid}
               autoBidAmount={autoBidAmount}
               setAutoBidAmount={setAutoBidAmount}
-              autoBidEnabled={autoBidEnabled}
+              autoBidStatus={autoBidStatus}
               savingAutoBid={savingAutoBid}
+              disablingAutoBid={disablingAutoBid}
               canBid={canBid}
               onOpenManualBidConfirm={openManualBidConfirm}
               onOpenAutoBidConfirm={openAutoBidConfirm}
+              onDisableAutoBidConfirm={openDisableAutoBidConfirm}
             />
           </aside>
         </div>
       </div>
+
       <AuctionActivityPanel
         participantCount={auction.participantCount}
         auctionId={auction?.id}
