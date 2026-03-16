@@ -489,15 +489,8 @@ export default function AuctionDetailPage() {
                       <div className="mt-6">
                         <div className="flex items-center justify-between">
                           <h3 className="text-base font-bold text-slate-900">
-                            Thuộc tính
+                            Thông tin chi tiết
                           </h3>
-                          <span className="text-xs text-slate-500">
-                            {
-                              Object.keys(auction?.item?.attributes || {})
-                                .length
-                            }{' '}
-                            thuộc tính
-                          </span>
                         </div>
 
                         <div className="mt-3 bg-slate-50 border border-slate-200 rounded-2xl p-4">

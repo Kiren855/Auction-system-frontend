@@ -1,7 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutGrid,
+  Rows3,
+  Gavel,
+  Clock3,
+  CalendarDays,
+  UserCheck,
+  ShieldCheck,
+} from 'lucide-react';
 import { auctionApi } from '../../api/auctionApi';
 import { useServerCountdown } from '../../hooks/useServerTimeCountdown';
+import Pagination from '../../components/common/Pagination';
+
+const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = [
   { label: 'Tất cả', value: '' },
@@ -11,430 +23,628 @@ const STATUS_OPTIONS = [
   { label: 'Đã huỷ', value: 'CANCELLED' },
 ];
 
+function formatDateTime(value) {
+  if (!value) return '--';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+
+  return date.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDuration(minutes) {
+  const total = Number(minutes || 0);
+  if (total <= 0) return '0 phút';
+
+  const day = Math.floor(total / 1440);
+  const hour = Math.floor((total % 1440) / 60);
+  const min = total % 60;
+
+  const parts = [];
+  if (day > 0) parts.push(`${day} ngày`);
+  if (hour > 0) parts.push(`${hour} giờ`);
+  if (min > 0) parts.push(`${min} phút`);
+
+  return parts.join(' ');
+}
+
+function normalizeStatus(value) {
+  return String(value || '').toUpperCase();
+}
+
+function getAuctionStatusConfig(status) {
+  switch (normalizeStatus(status)) {
+    case 'CREATED':
+      return {
+        label: 'Đã tạo',
+        className: 'border-sky-200 bg-sky-50 text-sky-700',
+      };
+    case 'PENDING':
+      return {
+        label: 'Sắp diễn ra',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      };
+    case 'ONGOING':
+      return {
+        label: 'Đang diễn ra',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      };
+    case 'FINISHED':
+      return {
+        label: 'Đã kết thúc',
+        className: 'border-slate-200 bg-slate-100 text-slate-700',
+      };
+    case 'COMPLETED':
+      return {
+        label: 'Đã hoàn thành',
+        className: 'border-slate-200 bg-slate-100 text-slate-700',
+      };
+    case 'CANCELLED':
+      return {
+        label: 'Đã huỷ',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+      };
+    default:
+      return {
+        label: status || 'Không xác định',
+        className: 'border-slate-200 bg-slate-100 text-slate-600',
+      };
+  }
+}
+
+function getDepositStatusConfig(status) {
+  switch (normalizeStatus(status)) {
+    case 'REQUIRED':
+      return {
+        label: 'Cần đặt cọc',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      };
+    case 'PAID':
+      return {
+        label: 'Đã đặt cọc',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      };
+    case 'REFUNDED':
+      return {
+        label: 'Đã hoàn cọc',
+        className: 'border-sky-200 bg-sky-50 text-sky-700',
+      };
+    case 'FORFEITED':
+      return {
+        label: 'Mất cọc',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+      };
+    default:
+      return {
+        label: status || '--',
+        className: 'border-slate-200 bg-slate-100 text-slate-600',
+      };
+  }
+}
+
+function getParticipationStatusConfig(status) {
+  switch (normalizeStatus(status)) {
+    case 'JOINED':
+      return {
+        label: 'Đã tham gia',
+        className: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+      };
+    case 'LEFT':
+      return {
+        label: 'Đã rời',
+        className: 'border-slate-200 bg-slate-100 text-slate-600',
+      };
+    case 'BANNED':
+      return {
+        label: 'Bị chặn',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+      };
+    default:
+      return {
+        label: status || '--',
+        className: 'border-slate-200 bg-slate-100 text-slate-600',
+      };
+  }
+}
+
+function getCountdownBadgeClass(status, isUrgent) {
+  const s = normalizeStatus(status);
+
+  if (s === 'PENDING') {
+    return isUrgent
+      ? 'animate-pulse border-emerald-300 bg-emerald-600 text-white'
+      : 'border-emerald-200 bg-white text-emerald-700';
+  }
+
+  return isUrgent
+    ? 'animate-pulse border-rose-300 bg-rose-600 text-white'
+    : 'border-rose-200 bg-white text-rose-700';
+}
+
+function getCountdownLabel(status) {
+  const s = normalizeStatus(status);
+  if (s === 'PENDING') return 'Bắt đầu sau';
+  if (s === 'ONGOING') return 'Còn lại';
+  return '';
+}
+
+function getTitleInitial(title) {
+  const text = String(title || '').trim();
+  return text ? text.charAt(0).toUpperCase() : '?';
+}
+
+const thumbnailPalette = [
+  'bg-rose-100 text-rose-700',
+  'bg-pink-100 text-pink-700',
+  'bg-orange-100 text-orange-700',
+  'bg-amber-100 text-amber-700',
+  'bg-yellow-100 text-yellow-700',
+  'bg-lime-100 text-lime-700',
+  'bg-green-100 text-green-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-teal-100 text-teal-700',
+  'bg-cyan-100 text-cyan-700',
+  'bg-sky-100 text-sky-700',
+  'bg-blue-100 text-blue-700',
+  'bg-indigo-100 text-indigo-700',
+  'bg-violet-100 text-violet-700',
+  'bg-purple-100 text-purple-700',
+];
+
+function getFallbackThumbnailClass(title) {
+  const text = String(title || '');
+  const hash = [...text].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return thumbnailPalette[hash % thumbnailPalette.length];
+}
+
+function ParticipatedAuctionCard({
+  item,
+  onViewDetail,
+  showCountdown,
+  countdownLabel,
+  countdownText,
+  countdownClassName,
+}) {
+  const auctionStatus = getAuctionStatusConfig(item?.status);
+  const depositStatus = getDepositStatusConfig(item?.deposit_status);
+  const participationStatus = getParticipationStatusConfig(
+    item?.participation_status,
+  );
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+      <div className="relative h-52 overflow-hidden bg-slate-100">
+        {item?.thumbnail_url ? (
+          <img
+            src={item.thumbnail_url}
+            alt={item?.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className={`flex h-full w-full items-center justify-center text-4xl font-bold ${getFallbackThumbnailClass(
+              item?.title,
+            )}`}
+          >
+            {getTitleInitial(item?.title)}
+          </div>
+        )}
+
+        <div className="absolute left-4 top-4">
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${auctionStatus.className}`}
+          >
+            {auctionStatus.label}
+          </span>
+        </div>
+
+        {showCountdown && (
+          <div className="absolute right-4 top-4">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${countdownClassName}`}
+            >
+              {countdownLabel} {countdownText}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-5">
+        <h3 className="line-clamp-2 text-lg font-bold text-slate-900">
+          {item?.title || '—'}
+        </h3>
+
+        <div className="mt-4 grid grid-cols-1 gap-3">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <CalendarDays size={14} />
+              Bắt đầu
+            </div>
+            <div className="mt-1 font-bold text-slate-900">
+              {formatDateTime(item?.start_at)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <Clock3 size={14} />
+              Thời lượng
+            </div>
+            <div className="mt-1 font-bold text-slate-900">
+              {formatDuration(item?.duration_minutes)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <UserCheck size={14} />
+              Tham gia lúc
+            </div>
+            <div className="mt-1 font-bold text-slate-900">
+              {formatDateTime(item?.joined_at)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => onViewDetail(item)}
+            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Vào phiên đấu giá
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ParticipatedAuctionRow({
+  item,
+  onViewDetail,
+  showCountdown,
+  countdownLabel,
+  countdownText,
+  countdownClassName,
+}) {
+  const auctionStatus = getAuctionStatusConfig(item?.status);
+  const depositStatus = getDepositStatusConfig(item?.deposit_status);
+  const participationStatus = getParticipationStatusConfig(
+    item?.participation_status,
+  );
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+      <div className="flex flex-col gap-4 p-4 md:flex-row">
+        <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-3xl bg-slate-100 md:w-44">
+          {item?.thumbnail_url ? (
+            <img
+              src={item.thumbnail_url}
+              alt={item?.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className={`flex h-full w-full items-center justify-center text-3xl font-bold ${getFallbackThumbnailClass(
+                item?.title,
+              )}`}
+            >
+              {getTitleInitial(item?.title)}
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* Hàng trên: Title và Countdown */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="line-clamp-2 text-lg font-bold text-slate-900 flex items-center gap-3">
+              {item?.title || '—'}
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${auctionStatus.className}`}
+              >
+                {auctionStatus.label}
+              </span>
+
+              {showCountdown && (
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${countdownClassName}`}
+                >
+                  {countdownLabel} {countdownText}
+                </span>
+              )}
+            </h3>
+          </div>
+
+          {/* Hàng dưới: 3 thẻ thông tin + 1 Button cùng 1 hàng */}
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            {/* Bắt đầu */}
+            <div className="min-w-37.5 flex-1 rounded-2xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <CalendarDays size={14} />
+                Bắt đầu
+              </div>
+              <div className="mt-1 font-bold text-slate-900">
+                {formatDateTime(item?.start_at)}
+              </div>
+            </div>
+
+            {/* Thời lượng */}
+            <div className="min-w-30 flex-1 rounded-2xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <Clock3 size={14} />
+                Thời lượng
+              </div>
+              <div className="mt-1 font-bold text-slate-900">
+                {formatDuration(item?.duration_minutes)}
+              </div>
+            </div>
+
+            {/* Tham gia lúc */}
+            <div className="min-w-37.5 flex-1 rounded-2xl bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <ShieldCheck size={14} />
+                Tham gia lúc
+              </div>
+              <div className="mt-1 font-bold text-slate-900">
+                {formatDateTime(item?.joined_at)}
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <button
+                type="button"
+                onClick={() => onViewDetail(item)}
+                className="h-full rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
+              >
+                Vào phiên đấu giá
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MyParticipatedAuctionsPage() {
   const navigate = useNavigate();
 
   const [auctions, setAuctions] = useState([]);
   const [serverTime, setServerTime] = useState(null);
-  const [page, setPage] = useState(0);
-  const [size] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [status, setStatus] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
   const [loading, setLoading] = useState(false);
 
+  const [pageInfo, setPageInfo] = useState({
+    pageNumber: 0,
+    totalPages: 0,
+    totalElements: 0,
+  });
+
+  const [status, setStatus] = useState('');
+
+  const fetchParticipatedAuctions = useCallback(
+    async (page = 0) => {
+      try {
+        setLoading(true);
+
+        const res = await auctionApi.getMyParticipatedAuctions(
+          status || null,
+          page,
+          PAGE_SIZE,
+        );
+
+        const data = res?.data || res;
+        const result = data?.result || {};
+
+        setAuctions(result?.content || []);
+        setServerTime(data?.server_time || new Date().toISOString());
+
+        setPageInfo({
+          pageNumber: Number(result?.pageNumber ?? page ?? 0),
+          totalPages: Number(result?.totalPages ?? 0),
+          totalElements: Number(result?.totalElements ?? 0),
+        });
+      } catch (error) {
+        console.error('Fetch participated auctions failed:', error);
+        setAuctions([]);
+        setPageInfo({
+          pageNumber: 0,
+          totalPages: 0,
+          totalElements: 0,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [status],
+  );
+
   useEffect(() => {
-    fetchParticipatedAuctions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status]);
-
-  const fetchParticipatedAuctions = async () => {
-    try {
-      setLoading(true);
-
-      const res = await auctionApi.getMyParticipatedAuctions(
-        status || null,
-        page,
-        size,
-      );
-
-      const data = res?.data;
-
-      setAuctions(data?.result?.content || []);
-      setTotalPages(data?.result?.totalPages ?? 1);
-      setServerTime(data?.server_time || null);
-    } catch (error) {
-      console.error('Fetch participated auctions failed:', error);
-      setAuctions([]);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchParticipatedAuctions(0);
+  }, [fetchParticipatedAuctions]);
 
   const { calculateRemaining } = useServerCountdown(auctions, serverTime);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '--';
-    return new Intl.DateTimeFormat('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(dateString));
+  const handleChangePage = (nextPage) => {
+    if (nextPage < 0 || nextPage >= pageInfo.totalPages) return;
+    fetchParticipatedAuctions(nextPage);
   };
 
-  const formatDuration = (minutes) => {
-    const total = Number(minutes || 0);
-    if (total <= 0) return '0 phút';
-
-    const day = Math.floor(total / 1440);
-    const hour = Math.floor((total % 1440) / 60);
-    const min = total % 60;
-
-    const parts = [];
-    if (day > 0) parts.push(`${day} ngày`);
-    if (hour > 0) parts.push(`${hour} tiếng`);
-    if (min > 0) parts.push(`${min} phút`);
-
-    return parts.join(' ');
+  const handleViewDetail = (auction) => {
+    const auctionId = auction?.auction_id;
+    if (!auctionId) return;
+    navigate(`/bidder/auctions/${auctionId}`);
   };
 
-  const normalizeStatus = (value) => String(value || '').toUpperCase();
+  const renderedItems = useMemo(() => {
+    const nowMs = new Date(serverTime).getTime();
 
-  const isEndedStatus = (auctionStatus) => {
-    const s = normalizeStatus(auctionStatus);
-    return s === 'FINISHED' || s === 'COMPLETED' || s === 'CANCELLED';
-  };
+    return auctions.map((auction) => {
+      const auctionStatus = normalizeStatus(auction?.status);
+      const showCountdown =
+        auctionStatus === 'PENDING' || auctionStatus === 'ONGOING';
 
-  const getStatusStyle = (auctionStatus) => {
-    switch (normalizeStatus(auctionStatus)) {
-      case 'CREATED':
-        return 'bg-sky-50 text-sky-700 border-sky-200';
-      case 'PENDING':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'ONGOING':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'FINISHED':
-      case 'COMPLETED':
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-      case 'CANCELLED':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
+      const countdownText = showCountdown ? calculateRemaining(auction) : null;
 
-  const getVietnameseStatus = (auctionStatus) => {
-    const map = {
-      CREATED: 'Đã tạo',
-      PENDING: 'Sắp diễn ra',
-      ONGOING: 'Đang diễn ra',
-      FINISHED: 'Đã kết thúc',
-      COMPLETED: 'Đã hoàn thành',
-      CANCELLED: 'Đã huỷ',
-    };
+      const targetTime =
+        auctionStatus === 'PENDING' ? auction?.start_at : auction?.end_at;
 
-    return map[normalizeStatus(auctionStatus)] || auctionStatus;
-  };
+      const targetMs = new Date(targetTime).getTime();
+      const diffMs = targetMs - nowMs;
 
-  const getDepositStatusStyle = (depositStatus) => {
-    switch (normalizeStatus(depositStatus)) {
-      case 'REQUIRED':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'PAID':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'REFUNDED':
-        return 'bg-sky-50 text-sky-700 border-sky-200';
-      case 'FORFEITED':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
+      const isUrgent =
+        Number.isFinite(targetMs) &&
+        Number.isFinite(nowMs) &&
+        diffMs > 0 &&
+        diffMs <= 5 * 60 * 1000;
 
-  const getVietnameseDepositStatus = (depositStatus) => {
-    const map = {
-      REQUIRED: 'Cần đặt cọc',
-      PAID: 'Đã đặt cọc',
-      REFUNDED: 'Đã hoàn cọc',
-      FORFEITED: 'Mất cọc',
-    };
-
-    return map[normalizeStatus(depositStatus)] || depositStatus || '--';
-  };
-
-  const getParticipationStatusStyle = (participationStatus) => {
-    switch (normalizeStatus(participationStatus)) {
-      case 'JOINED':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'LEFT':
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-      case 'BANNED':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
-
-  const getVietnameseParticipationStatus = (participationStatus) => {
-    const map = {
-      JOINED: 'Đã tham gia',
-      LEFT: 'Đã rời',
-      BANNED: 'Bị chặn',
-    };
-
-    return (
-      map[normalizeStatus(participationStatus)] || participationStatus || '--'
-    );
-  };
-
-  const getCountdownLabel = (auctionStatus) => {
-    const s = normalizeStatus(auctionStatus);
-    if (s === 'PENDING') return 'Bắt đầu sau';
-    if (s === 'ONGOING') return 'Còn lại';
-    return '';
-  };
-
-  const getCountdownBoxClasses = (auctionStatus) => {
-    const s = normalizeStatus(auctionStatus);
-
-    if (s === 'PENDING') {
       return {
-        box: 'bg-emerald-50 border-emerald-100',
-        label: 'text-emerald-500',
-        time: 'text-emerald-700',
+        item: auction,
+        showCountdown,
+        countdownLabel: getCountdownLabel(auctionStatus),
+        countdownText,
+        countdownClassName: getCountdownBadgeClass(auctionStatus, isUrgent),
       };
-    }
-
-    return {
-      box: 'bg-red-50 border-red-100',
-      label: 'text-red-400',
-      time: 'text-red-600',
-    };
-  };
-
-  const getTitleInitial = (title) => {
-    const text = String(title || '').trim();
-    return text ? text.charAt(0).toUpperCase() : '?';
-  };
-
-  const thumbnailPalette = useMemo(
-    () => [
-      'bg-rose-100 text-rose-700',
-      'bg-pink-100 text-pink-700',
-      'bg-orange-100 text-orange-700',
-      'bg-amber-100 text-amber-700',
-      'bg-yellow-100 text-yellow-700',
-      'bg-lime-100 text-lime-700',
-      'bg-green-100 text-green-700',
-      'bg-emerald-100 text-emerald-700',
-      'bg-teal-100 text-teal-700',
-      'bg-cyan-100 text-cyan-700',
-      'bg-sky-100 text-sky-700',
-      'bg-blue-100 text-blue-700',
-      'bg-indigo-100 text-indigo-700',
-      'bg-violet-100 text-violet-700',
-      'bg-purple-100 text-purple-700',
-    ],
-    [],
-  );
-
-  const getFallbackThumbnailClass = (title) => {
-    const text = String(title || '');
-    const hash = [...text].reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return thumbnailPalette[hash % thumbnailPalette.length];
-  };
+    });
+  }, [auctions, calculateRemaining, serverTime]);
 
   return (
-    <div className="bg-gray-100 min-h-screen py-10">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm px-8 py-8">
-          {/* Header */}
-          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800">
-                Đấu giá của tôi
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Danh sách các phiên đấu giá bạn đã tham gia
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <select
-                value={status}
-                onChange={(e) => {
-                  setPage(0);
-                  setStatus(e.target.value);
-                }}
-                className="px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-200"
-              >
-                {STATUS_OPTIONS.map((item) => (
-                  <option key={item.value || 'all'} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="min-h-screen bg-slate-50">
+      <section className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              Đấu giá đã tham gia
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Danh sách các phiên đấu giá bạn đã tham gia
+            </p>
           </div>
 
-          <div className="border-t my-6"></div>
-
-          {/* Loading */}
-          {loading ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center">
-              <div className="text-gray-500">Đang tải dữ liệu...</div>
-            </div>
-          ) : auctions.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center">
-              <div className="text-3xl mb-3">🔎</div>
-              <div className="text-gray-800 font-semibold">
-                Bạn chưa tham gia phiên đấu giá nào
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                Hãy tham gia một phiên đấu giá để theo dõi tại đây.
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {auctions.map((auction) => {
-                const remaining = calculateRemaining(auction);
-                const ended = isEndedStatus(auction.status);
-                const countdownCls = getCountdownBoxClasses(auction.status);
-                const auctionId = auction.auction_id;
-
-                return (
-                  <div
-                    key={auctionId}
-                    onDoubleClick={() =>
-                      navigate(`/bidder/auctions/${auctionId}`)
-                    }
-                    className="group bg-gray-50 border border-gray-200 rounded-xl p-5
-             hover:bg-white hover:shadow-lg hover:border-gray-300
-             transition-all duration-200 cursor-pointer"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-                      {/* LEFT */}
-                      <div className="flex gap-4 flex-1 min-w-0">
-                        {/* Thumbnail */}
-                        <div className="shrink-0">
-                          {auction.thumbnail_url ? (
-                            <img
-                              src={auction.thumbnail_url}
-                              alt={auction.title}
-                              className="w-24 h-24 rounded-2xl object-cover border border-gray-200 bg-gray-100"
-                            />
-                          ) : (
-                            <div
-                              className={`w-24 h-24 rounded-2xl border border-gray-200 flex items-center justify-center text-3xl font-bold ${getFallbackThumbnailClass(
-                                auction.title,
-                              )}`}
-                            >
-                              {getTitleInitial(auction.title)}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex flex-col gap-3 flex-1 min-w-0">
-                          {/* Title */}
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <h3 className="text-lg font-semibold text-gray-800 truncate">
-                              {auction?.title || '—'}
-                            </h3>
-
-                            <span
-                              className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyle(
-                                auction.status,
-                              )}`}
-                            >
-                              {getVietnameseStatus(auction.status)}
-                            </span>
-                          </div>
-
-                          {/* Meta badge */}
-
-                          {/* Time */}
-                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <span>🕒</span>
-                              <span className="text-gray-500">Bắt đầu:</span>
-                              <span className="font-medium text-gray-800">
-                                {formatDate(auction.start_at)}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span>⏳</span>
-                              <span className="text-gray-500">Diễn ra:</span>
-                              <span className="font-medium text-gray-800">
-                                {formatDuration(auction.duration_minutes)}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span>🙋</span>
-                              <span className="text-gray-500">
-                                Tham gia lúc:
-                              </span>
-                              <span className="font-medium text-gray-800">
-                                {formatDate(auction.joined_at)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Auction ID */}
-                          <div className="text-xs text-gray-400 break-all">
-                            Auction ID: {auctionId}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* RIGHT: countdown */}
-                      <div className="shrink-0">
-                        {ended ? (
-                          <div className="px-6 py-3 min-w-45" />
-                        ) : (
-                          <div
-                            className={`px-6 py-3 rounded-xl text-center min-w-45 border ${countdownCls.box}`}
-                          >
-                            <div
-                              className={`text-xs mb-1 ${countdownCls.label}`}
-                            >
-                              {getCountdownLabel(auction.status)}
-                            </div>
-
-                            <div
-                              className={`text-xl font-mono font-semibold tracking-wide ${countdownCls.time}`}
-                            >
-                              {remaining}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Footer action
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
-                      <button
-                        onClick={() => navigate(`/auctions/${auctionId}`)}
-                        className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                      >
-                        Xem chi tiết
-                      </button>
-                    </div> */}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="flex justify-center items-center gap-6 mt-10">
-            <button
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-100"
             >
-              Prev
-            </button>
+              {STATUS_OPTIONS.map((item) => (
+                <option key={item.value || 'all'} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
 
-            <span className="text-sm text-gray-600">
-              Trang {totalPages === 0 ? 0 : page + 1} /{' '}
-              {Math.max(totalPages, 1)}
-            </span>
+            <div className="inline-flex w-fit items-center rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'grid'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <LayoutGrid size={16} />
+                Dạng thẻ
+              </button>
 
-            <button
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
-            >
-              Next
-            </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  viewMode === 'list'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Rows3 size={16} />
+                Dạng danh sách
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+
+        {loading ? (
+          <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-10 text-center text-slate-500 shadow-sm">
+            Đang tải dữ liệu...
+          </div>
+        ) : auctions.length === 0 ? (
+          <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <div className="mb-3 text-3xl">🔎</div>
+            <div className="text-lg font-semibold text-slate-800">
+              Bạn chưa tham gia phiên đấu giá nào
+            </div>
+            <div className="mt-2 text-sm text-slate-500">
+              Hãy tham gia một phiên đấu giá để theo dõi tại đây.
+            </div>
+          </div>
+        ) : (
+          <>
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {renderedItems.map(
+                  ({
+                    item,
+                    showCountdown,
+                    countdownLabel,
+                    countdownText,
+                    countdownClassName,
+                  }) => (
+                    <ParticipatedAuctionCard
+                      key={item.auction_id}
+                      item={item}
+                      onViewDetail={handleViewDetail}
+                      showCountdown={showCountdown}
+                      countdownLabel={countdownLabel}
+                      countdownText={countdownText}
+                      countdownClassName={countdownClassName}
+                    />
+                  ),
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {renderedItems.map(
+                  ({
+                    item,
+                    showCountdown,
+                    countdownLabel,
+                    countdownText,
+                    countdownClassName,
+                  }) => (
+                    <ParticipatedAuctionRow
+                      key={item.auction_id}
+                      item={item}
+                      onViewDetail={handleViewDetail}
+                      showCountdown={showCountdown}
+                      countdownLabel={countdownLabel}
+                      countdownText={countdownText}
+                      countdownClassName={countdownClassName}
+                    />
+                  ),
+                )}
+              </div>
+            )}
+
+            <Pagination
+              page={pageInfo.pageNumber}
+              totalPages={pageInfo.totalPages}
+              totalElements={pageInfo.totalElements}
+              onPageChange={handleChangePage}
+              className="mt-8"
+              siblingCount={1}
+            />
+          </>
+        )}
+      </section>
     </div>
   );
 }

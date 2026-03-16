@@ -14,4 +14,35 @@ export const paymentApi = {
       packageId,
     });
   },
+
+  getMyWinningAuctions: ({ status, page = 0, size = 10 } = {}) => {
+    const params = { page, size };
+
+    if (status) params.status = status;
+
+    return axiosClient.get(
+      '/payment/api/v1/auction-settlements/my-winning-auctions',
+      {
+        params,
+      },
+    );
+  },
+
+  getAuctionPaymentSummary: (auctionId) => {
+    return axiosClient.get(
+      `/payment/api/v1/auction-settlements/${auctionId}/payment-summary`,
+    );
+  },
+
+  payAuctionByWallet: (auctionId) => {
+    return axiosClient.post(
+      `/payment/api/v1/auction-settlements/${auctionId}/pay-by-wallet`,
+    );
+  },
+
+  createAuctionPaymentOrder: (auctionId) => {
+    return axiosClient.post(
+      `/payment/api/v1/auction-settlements/${auctionId}/create-payment-order`,
+    );
+  },
 };

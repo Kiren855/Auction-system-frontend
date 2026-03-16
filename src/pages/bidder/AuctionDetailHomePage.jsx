@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { auctionApi } from '../../api/auctionApi';
 import StatusBadge from '../../components/StatusBadge';
+import ConfirmModal from '../../components/common/ConfirmModal';
 
 function formatVND(value) {
   const n = Number(value ?? 0);
@@ -65,18 +66,6 @@ function formatCondition(condition) {
   };
 
   return map[String(condition || '').toUpperCase()] || condition || '-';
-}
-
-function getStatusText(status) {
-  const map = {
-    CREATED: 'Đã tạo',
-    PENDING: 'Sắp diễn ra',
-    ONGOING: 'Đang diễn ra',
-    COMPLETED: 'Đã hoàn thành',
-    CANCELLED: 'Đã huỷ',
-  };
-
-  return map[String(status || '').toUpperCase()] || status || '-';
 }
 
 function getTimeParts(ms) {
@@ -178,6 +167,22 @@ export default function AuctionDetailHomePage() {
   const [clientAnchorMs, setClientAnchorMs] = useState(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
+  const [joinModal, setJoinModal] = useState({
+    isOpen: false,
+    loading: false,
+    auctionId: null,
+    auctionTitle: '',
+    auctionPrice: 0,
+  });
+
+  const [insufficientModal, setInsufficientModal] = useState({
+    isOpen: false,
+    loading: false,
+    auctionId: null,
+    auctionTitle: '',
+    auctionPrice: 0,
+  });
+
   const fetchDetail = async () => {
     try {
       setLoading(true);
@@ -253,6 +258,11 @@ export default function AuctionDetailHomePage() {
   }, [auction]);
 
   const endAtMs = useMemo(() => {
+    if (auction?.end_at) {
+      const time = new Date(auction.end_at).getTime();
+      return Number.isNaN(time) ? null : time;
+    }
+
     if (!startAtMs) return null;
     return startAtMs + Number(auction?.duration_minutes || 0) * 60 * 1000;
   }, [startAtMs, auction]);
@@ -300,9 +310,173 @@ export default function AuctionDetailHomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageModalOpen, images.length]);
 
-  const handleJoinAuction = () => {
-    // TODO: xử lý sau
-    console.log('join auction', auction?.id);
+  const joined =
+    auction?.isJoined === true ||
+    auction?.joined === true ||
+    auction?.hasJoined === true ||
+    auction?.is_participated === true ||
+    auction?.isParticipated === true ||
+    auction?.joinedAuction === true ||
+    auction?.participantJoined === true ||
+    auction?.participationStatus === 'JOINED' ||
+    auction?.participation_status === 'JOINED';
+
+  const canJoin =
+    !loading &&
+    !!auction &&
+    !joined &&
+    (status === 'PENDING' || status === 'ONGOING');
+
+  const getDepositPrice = (data) =>
+    data?.depositPrice ??
+    data?.deposit_price ??
+    data?.depositAmount ??
+    data?.deposit_amount ??
+    0;
+
+  const openJoinModal = () => {
+    if (!canJoin || !auction) return;
+
+    setJoinModal({
+      isOpen: true,
+      loading: false,
+      auctionId: auction.id,
+      auctionTitle: auction.title || auction?.item?.item_name || '',
+      auctionPrice: auction.depositPrice,
+    });
+  };
+
+  const closeJoinModal = () => {
+    if (joinModal.loading) return;
+
+    setJoinModal({
+      isOpen: false,
+      loading: false,
+      auctionId: null,
+      auctionTitle: '',
+      auctionPrice: 0,
+    });
+  };
+
+  const openInsufficientModal = (
+    targetAuctionId,
+    auctionTitle,
+    auctionPrice,
+  ) => {
+    setInsufficientModal({
+      isOpen: true,
+      loading: false,
+      auctionId: targetAuctionId,
+      auctionTitle,
+      auctionPrice,
+    });
+  };
+
+  const closeInsufficientModal = () => {
+    if (insufficientModal.loading) return;
+
+    setInsufficientModal({
+      isOpen: false,
+      loading: false,
+      auctionId: null,
+      auctionTitle: '',
+      auctionPrice: 0,
+    });
+  };
+
+  const handleConfirmDeposit = async () => {
+    const currentAuctionId = joinModal.auctionId;
+    const currentAuctionTitle = joinModal.auctionTitle;
+    const currentAuctionPrice = joinModal.auctionPrice;
+
+    if (!currentAuctionId) return;
+
+    try {
+      setJoinModal((prev) => ({ ...prev, loading: true }));
+
+      const response = await auctionApi.checkBalance(currentAuctionId);
+      const result = response?.result || response?.data?.result || {};
+      const availableDepositStatus = result?.availableDepositStatus;
+
+      if (availableDepositStatus === 'YES') {
+        const joinResponse = await auctionApi.joinAuction(currentAuctionId);
+        const joinResult =
+          joinResponse?.result || joinResponse?.data?.result || {};
+        const paymentUrl = joinResult?.paymentUrl;
+
+        setJoinModal({
+          isOpen: false,
+          loading: false,
+          auctionId: null,
+          auctionTitle: '',
+          auctionPrice: 0,
+        });
+
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+          return;
+        }
+
+        await fetchDetail();
+        return;
+      }
+
+      setJoinModal({
+        isOpen: false,
+        loading: false,
+        auctionId: null,
+        auctionTitle: '',
+        auctionPrice: 0,
+      });
+
+      openInsufficientModal(
+        currentAuctionId,
+        currentAuctionTitle,
+        currentAuctionPrice,
+      );
+    } catch (err) {
+      console.error('Check balance failed:', err);
+      setJoinModal((prev) => ({ ...prev, loading: false }));
+      alert(
+        err?.response?.data?.message ||
+          'Không thể kiểm tra số dư để tham gia phiên đấu giá.',
+      );
+    }
+  };
+
+  const handleConfirmDirectPayment = async () => {
+    const currentAuctionId = insufficientModal.auctionId;
+
+    if (!currentAuctionId) return;
+
+    try {
+      setInsufficientModal((prev) => ({ ...prev, loading: true }));
+
+      const response = await auctionApi.joinAuction(currentAuctionId);
+      const result = response?.result || response?.data?.result || {};
+      const paymentUrl = result?.paymentUrl;
+
+      setInsufficientModal({
+        isOpen: false,
+        loading: false,
+        auctionId: null,
+        auctionTitle: '',
+        auctionPrice: 0,
+      });
+
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+
+      await fetchDetail();
+    } catch (err) {
+      console.error('Join auction failed:', err);
+      setInsufficientModal((prev) => ({ ...prev, loading: false }));
+      alert(
+        err?.response?.data?.message || 'Không thể tạo yêu cầu thanh toán.',
+      );
+    }
   };
 
   return (
@@ -320,14 +494,22 @@ export default function AuctionDetailHomePage() {
             <h1 className="truncate text-2xl font-bold text-slate-900 lg:text-3xl">
               {auction?.title || 'Chi tiết phiên đấu giá'}
             </h1>
+
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {!loading && auction ? (
                 <StatusBadge status={auction?.status} />
               ) : null}
+
               {auction?.seller_name ? (
-                <span className="rounded-full bg-white px-3 py-1 text-sm text-slate-600 shadow-sm border border-slate-200">
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 shadow-sm">
                   Người bán:{' '}
                   <span className="font-semibold">{auction.seller_name}</span>
+                </span>
+              ) : null}
+
+              {joined ? (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 shadow-sm">
+                  Đã tham gia
                 </span>
               ) : null}
             </div>
@@ -484,16 +666,17 @@ export default function AuctionDetailHomePage() {
                     </div>
 
                     <button
-                      onClick={handleJoinAuction}
-                      disabled={loading || !auction}
+                      type="button"
+                      onClick={openJoinModal}
+                      disabled={!canJoin}
                       className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm transition ${
-                        loading || !auction
-                          ? 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        canJoin
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
                       }`}
                     >
                       <Gavel size={18} />
-                      Tham gia phiên đấu giá
+                      {joined ? 'Đã tham gia' : 'Tham gia phiên đấu giá'}
                     </button>
                   </div>
 
@@ -568,7 +751,7 @@ export default function AuctionDetailHomePage() {
                     </h3>
                   </div>
 
-                  <div className="text-sm leading-7 text-slate-700 whitespace-pre-line">
+                  <div className="whitespace-pre-line text-sm leading-7 text-slate-700">
                     {auction?.item?.description || 'Chưa có mô tả sản phẩm.'}
                   </div>
                 </div>
@@ -599,6 +782,30 @@ export default function AuctionDetailHomePage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={joinModal.isOpen}
+        onClose={closeJoinModal}
+        onConfirm={handleConfirmDeposit}
+        loading={joinModal.loading}
+        title="Xác nhận thanh toán tiền đặt cọc"
+        message={`Bạn có muốn thanh toán số tiền đặt cọc là ${joinModal.auctionPrice} vnđ để tham gia phiên đấu giá "${joinModal.auctionTitle}" không?`}
+        confirmText="Xác nhận"
+        cancelText="Hủy"
+        variant="wallet"
+      />
+
+      <ConfirmModal
+        isOpen={insufficientModal.isOpen}
+        onClose={closeInsufficientModal}
+        onConfirm={handleConfirmDirectPayment}
+        loading={insufficientModal.loading}
+        title="Số dư ví không đủ"
+        message={`Số dư khả dụng trong ví của bạn hiện không đủ để thanh toán tiền đặt cọc cho phiên đấu giá "${insufficientModal.auctionTitle}". Bạn có muốn thanh toán trực tiếp không?`}
+        confirmText="Thanh toán trực tiếp"
+        cancelText="Hủy"
+        variant="payment"
+      />
 
       {imageModalOpen && (
         <div

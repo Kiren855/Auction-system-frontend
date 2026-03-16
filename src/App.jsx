@@ -24,6 +24,7 @@ import BidderSearchResultPage from './pages/bidder/BidderSearchResultPage';
 import AuctionDetailHomePage from './pages/bidder/AuctionDetailHomePage';
 import OAuthSuccessPage from './components/OAuthSuccessPage';
 import TopupPage from './pages/payment/TopupPage';
+import WinningAuctionHistoryPage from './pages/payment/WinningAuctionHistoryPage';
 
 function App() {
   return (
@@ -73,7 +74,7 @@ function App() {
                 path="auctions/:auctionId"
                 element={<BidderAuctionRoom />}
               />
-              <Route path="history" element={<SellerAuctionPage />} />
+              <Route path="history" element={<WinningAuctionHistoryPage />} />
               <Route path="won" element={<SellerAuctionPage />} />
             </Route>
 

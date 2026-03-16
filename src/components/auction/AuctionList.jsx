@@ -2,31 +2,67 @@ import { useEffect, useState } from 'react';
 import { auctionApi } from '../../api/auctionApi';
 import { useServerCountdown } from '../../hooks/useServerTimeCountdown';
 import { useNavigate } from 'react-router-dom';
+import Pagination from '../../components/common/Pagination';
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'CREATED', label: 'Đã tạo' },
+  { value: 'PENDING', label: 'Sắp diễn ra' },
+  { value: 'ONGOING', label: 'Đang diễn ra' },
+  { value: 'FINISHED', label: 'Đã kết thúc' },
+  { value: 'CANCELLED', label: 'Đã huỷ' },
+];
 
 export default function AuctionList() {
   const [auctions, setAuctions] = useState([]);
   const [serverTime, setServerTime] = useState(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+
+  const [status, setStatus] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setKeyword(searchInput.trim());
+      setPage(0);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchAuctions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, status, keyword]);
 
   const fetchAuctions = async () => {
     try {
-      const res = await auctionApi.getAllSellerAuctions(page, 10);
-      const data = res.data;
+      const res = await auctionApi.getAllSellerAuctions({
+        status: status || undefined,
+        keyword: keyword || undefined,
+        page,
+        size: 10,
+        sortBy: 'creationTimestamp',
+        sortDir: 'desc',
+      });
 
-      setAuctions(data?.result?.content || []);
-      setTotalPages(data?.result?.totalPages ?? 1);
+      const data = res?.data || {};
+      const result = data?.result || {};
+
+      setAuctions(result?.content || []);
+      setTotalPages(Number(result?.totalPages ?? 1));
+      setTotalElements(Number(result?.totalElements ?? 0));
       setServerTime(data?.server_time || null);
     } catch (error) {
       console.error('Fetch seller auctions failed:', error);
       setAuctions([]);
       setTotalPages(1);
+      setTotalElements(0);
     }
   };
 
@@ -61,11 +97,6 @@ export default function AuctionList() {
 
   const normalizeStatus = (status) => String(status || '').toUpperCase();
 
-  const isEndedStatus = (status) => {
-    const s = normalizeStatus(status);
-    return s === 'FINISHED' || s === 'COMPLETED' || s === 'CANCELLED';
-  };
-
   const getStatusStyle = (status) => {
     switch (normalizeStatus(status)) {
       case 'CREATED':
@@ -75,7 +106,6 @@ export default function AuctionList() {
       case 'ONGOING':
         return 'bg-yellow-50 text-yellow-700 border-yellow-200';
       case 'FINISHED':
-      case 'COMPLETED':
         return 'bg-gray-100 text-gray-600 border-gray-200';
       case 'CANCELLED':
         return 'bg-rose-50 text-rose-700 border-rose-200';
@@ -90,13 +120,17 @@ export default function AuctionList() {
       PENDING: 'Sắp diễn ra',
       ONGOING: 'Đang diễn ra',
       FINISHED: 'Đã kết thúc',
-      COMPLETED: 'Đã hoàn thành',
       CANCELLED: 'Đã huỷ',
       APPROVED: 'Được chấp nhận',
       REJECTED: 'Bị từ chối',
     };
 
     return map[normalizeStatus(status)] || status;
+  };
+
+  const shouldShowCountdown = (status) => {
+    const s = normalizeStatus(status);
+    return s === 'PENDING' || s === 'ONGOING';
   };
 
   const getCountdownLabel = (status) => {
@@ -106,22 +140,18 @@ export default function AuctionList() {
     return '';
   };
 
-  const getCountdownBoxClasses = (status) => {
+  const getCountdownBadgeClass = (status, isUrgent) => {
     const s = normalizeStatus(status);
 
     if (s === 'PENDING') {
-      return {
-        box: 'bg-emerald-50 border-emerald-100',
-        label: 'text-emerald-500',
-        time: 'text-emerald-700',
-      };
+      return isUrgent
+        ? 'animate-pulse border-emerald-300 bg-emerald-600 text-white'
+        : 'border-emerald-200 bg-white text-emerald-700';
     }
 
-    return {
-      box: 'bg-red-50 border-red-100',
-      label: 'text-red-400',
-      time: 'text-red-600',
-    };
+    return isUrgent
+      ? 'animate-pulse border-rose-300 bg-rose-600 text-white'
+      : 'border-rose-200 bg-white text-rose-700';
   };
 
   const getTitleInitial = (title) => {
@@ -153,37 +183,71 @@ export default function AuctionList() {
     return thumbnailPalette[hash % thumbnailPalette.length];
   };
 
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 0 || nextPage >= totalPages) return;
+    setPage(nextPage);
+  };
+
   return (
-    <div className="bg-gray-100 min-h-screen py-10">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm px-8 py-8">
-          <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-100 py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="rounded-2xl border border-gray-200 bg-white px-8 py-8 shadow-sm">
+          <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold text-gray-800">
               Danh sách phiên đấu giá
             </h2>
 
             <button
               onClick={() => navigate('/seller/auctions/create/product')}
-              className="bg-gray-900 text-white px-5 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+              className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
             >
               + Tạo phiên đấu giá
             </button>
           </div>
 
-          <div className="border-t my-6"></div>
+          <div className="my-6 border-t" />
+
+          <div className="mb-6 flex flex-col gap-3 md:flex-row">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Tìm theo tên phiên đấu giá..."
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+              />
+            </div>
+
+            <div className="md:w-56">
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(0);
+                }}
+                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value || 'all'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {auctions.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-10 text-center">
-              <div className="text-3xl mb-3">📭</div>
-              <div className="text-gray-800 font-semibold">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-10 text-center">
+              <div className="mb-3 text-3xl">📭</div>
+              <div className="font-semibold text-gray-800">
                 Chưa có phiên đấu giá nào
               </div>
-              <div className="text-sm text-gray-500 mt-1">
+              <div className="mt-1 text-sm text-gray-500">
                 Hãy tạo phiên đấu giá mới để bắt đầu.
               </div>
               <button
                 onClick={() => navigate('/seller/auctions/create/product')}
-                className="mt-5 inline-flex items-center justify-center bg-gray-900 text-white px-5 py-2 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
               >
                 + Tạo phiên đấu giá
               </button>
@@ -191,28 +255,50 @@ export default function AuctionList() {
           ) : (
             <div className="space-y-5">
               {auctions.map((auction) => {
-                const remaining = calculateRemaining(auction);
-                const ended = isEndedStatus(auction.status);
-                const countdownCls = getCountdownBoxClasses(auction.status);
+                const auctionStatus = normalizeStatus(auction.status);
+                const showCountdown = shouldShowCountdown(auctionStatus);
+                const remaining = showCountdown
+                  ? calculateRemaining(auction)
+                  : null;
+
+                const targetTime =
+                  auctionStatus === 'PENDING'
+                    ? auction.start_at
+                    : auction.end_at;
+
+                const nowMs = new Date(serverTime).getTime();
+                const targetMs = new Date(targetTime).getTime();
+                const diffMs = targetMs - nowMs;
+
+                const isUrgent =
+                  Number.isFinite(nowMs) &&
+                  Number.isFinite(targetMs) &&
+                  diffMs > 0 &&
+                  diffMs <= 5 * 60 * 1000;
+
+                const countdownBadgeClass = getCountdownBadgeClass(
+                  auctionStatus,
+                  isUrgent,
+                );
 
                 return (
                   <div
                     key={auction.id}
                     onClick={() => navigate(`/seller/auctions/${auction.id}`)}
-                    className="group bg-gray-50 border border-gray-200 rounded-xl p-5 hover:bg-white hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                    className="group cursor-pointer rounded-xl border border-gray-200 bg-gray-50 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-lg"
                   >
-                    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-5">
-                      <div className="flex gap-4 flex-1 min-w-0">
+                    <div className="flex gap-5">
+                      <div className="flex flex-1 min-w-0 gap-4">
                         <div className="shrink-0">
                           {auction.thumbnail_url ? (
                             <img
                               src={auction.thumbnail_url}
                               alt={auction.title}
-                              className="w-24 h-24 rounded-2xl object-cover border border-gray-200 bg-gray-100"
+                              className="h-24 w-24 rounded-2xl border border-gray-200 bg-gray-100 object-cover"
                             />
                           ) : (
                             <div
-                              className={`w-24 h-24 rounded-2xl border border-gray-200 flex items-center justify-center text-3xl font-bold ${getFallbackThumbnailClass(
+                              className={`flex h-24 w-24 items-center justify-center rounded-2xl border border-gray-200 text-3xl font-bold ${getFallbackThumbnailClass(
                                 auction.title,
                               )}`}
                             >
@@ -221,19 +307,27 @@ export default function AuctionList() {
                           )}
                         </div>
 
-                        <div className="flex flex-col gap-3 flex-1 min-w-0">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <h3 className="text-lg font-semibold text-gray-800 truncate">
+                        <div className="flex min-w-0 flex-1 flex-col gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="truncate text-lg font-semibold text-gray-800">
                               {auction?.title || '—'}
                             </h3>
 
                             <span
-                              className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyle(
+                              className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusStyle(
                                 auction.status,
                               )}`}
                             >
                               {getVietnameseStatus(auction.status)}
                             </span>
+
+                            {showCountdown && (
+                              <span
+                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${countdownBadgeClass}`}
+                              >
+                                {getCountdownLabel(auction.status)} {remaining}
+                              </span>
+                            )}
                           </div>
 
                           <div className="text-sm text-gray-500">
@@ -260,33 +354,19 @@ export default function AuctionList() {
                               </span>
                             </div>
                           </div>
-
-                          <div className="text-xs text-gray-400 break-all">
-                            Auction ID: {auction.id}
-                          </div>
                         </div>
                       </div>
-
                       <div className="shrink-0">
-                        {ended ? (
-                          <div className="min-w-45 px-6 py-3" />
-                        ) : (
-                          <div
-                            className={`px-6 py-3 rounded-xl text-center min-w-45 border ${countdownCls.box}`}
-                          >
-                            <div
-                              className={`text-xs mb-1 ${countdownCls.label}`}
-                            >
-                              {getCountdownLabel(auction.status)}
-                            </div>
-
-                            <div
-                              className={`text-xl font-mono font-semibold tracking-wide ${countdownCls.time}`}
-                            >
-                              {remaining}
-                            </div>
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/seller/auctions/${auction.id}`);
+                          }}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-400"
+                        >
+                          Xem chi tiết
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -295,27 +375,14 @@ export default function AuctionList() {
             </div>
           )}
 
-          <div className="flex justify-center items-center gap-6 mt-10">
-            <button
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
-            >
-              Prev
-            </button>
-
-            <span className="text-sm text-gray-600">
-              Trang {page + 1} / {totalPages}
-            </span>
-
-            <button
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            onPageChange={handlePageChange}
+            className="mt-10"
+            siblingCount={1}
+          />
         </div>
       </div>
     </div>
