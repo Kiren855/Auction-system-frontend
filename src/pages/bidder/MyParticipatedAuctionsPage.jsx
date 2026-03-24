@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -12,6 +18,8 @@ import {
 import { auctionApi } from '../../api/auctionApi';
 import { useServerCountdown } from '../../hooks/useServerTimeCountdown';
 import Pagination from '../../components/common/Pagination';
+import { toast, Toaster } from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
@@ -466,6 +474,21 @@ export default function MyParticipatedAuctionsPage() {
     },
     [status],
   );
+  const location = useLocation();
+  const hasShownToastRef = useRef(false);
+
+  useEffect(() => {
+    if (location.state?.showSuccessToast && !hasShownToastRef.current) {
+      hasShownToastRef.current = true;
+
+      toast.success(location.state.message || 'Thành công');
+
+      navigate(location.pathname, {
+        replace: true,
+        state: {},
+      });
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     fetchParticipatedAuctions(0);

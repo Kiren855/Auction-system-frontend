@@ -17,7 +17,7 @@ const SORT_OPTIONS = [
   { value: 'startAt-asc', label: 'Bắt đầu sớm nhất' },
   { value: 'currentPrice-asc', label: 'Giá thấp đến cao' },
   { value: 'currentPrice-desc', label: 'Giá cao đến thấp' },
-  { value: 'createdAt-desc', label: 'Mới nhất' },
+  { value: 'creationTimestamp-desc', label: 'Mới nhất' },
 ];
 
 function parseSortValue(sortValue) {
@@ -513,7 +513,7 @@ export default function AuctionListPage() {
               ) : null}
             </div>
 
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_auto] xl:items-end">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
                 <p className="mb-3 text-sm font-semibold text-slate-700">
                   Trạng thái
@@ -641,7 +641,7 @@ export default function AuctionListPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {auctionsPage.content.map((auction) => (
                   <AuctionCard
                     key={auction.id}

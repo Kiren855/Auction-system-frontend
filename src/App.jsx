@@ -25,6 +25,7 @@ import AuctionDetailHomePage from './pages/bidder/AuctionDetailHomePage';
 import OAuthSuccessPage from './components/OAuthSuccessPage';
 import TopupPage from './pages/payment/TopupPage';
 import WinningAuctionHistoryPage from './pages/payment/WinningAuctionHistoryPage';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
@@ -97,6 +98,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" />
     </AuthProvider>
   );
 }

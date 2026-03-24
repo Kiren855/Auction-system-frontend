@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
+import toast from 'react-hot-toast';
 import {
   MessageCircle,
   Clock3,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import { biddingApi } from '../../api/biddingApi';
 
-const MAX_MESSAGE_LENGTH = 500;
+const MAX_MESSAGE_LENGTH = 1000;
 const SEND_COOLDOWN_MS = 1500;
 
 function formatCurrency(value) {
@@ -59,6 +60,16 @@ function getChatStatusMeta(auctionStatus, isSocketConnected) {
   };
 }
 
+function extractErrorMessage(error) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.detail ||
+    error?.response?.data?.error ||
+    error?.message ||
+    'Không thể gửi tin nhắn lúc này.'
+  );
+}
+
 export default function AuctionActivityPanel({
   participantCount,
   auctionId,
@@ -89,6 +100,10 @@ export default function AuctionActivityPanel({
   const historyEndRef = useRef(null);
   const stompClientRef = useRef(null);
 
+  const activeTabRef = useRef(activeTab);
+  const isOpenRef = useRef(isOpen);
+  const currentUserIdRef = useRef(currentUserId);
+
   const canChat = auctionStatus === 'ONGOING';
   const trimmedMessage = chatMessage.trim();
   const remainingChars = MAX_MESSAGE_LENGTH - chatMessage.length;
@@ -98,6 +113,18 @@ export default function AuctionActivityPanel({
     () => getChatStatusMeta(auctionStatus, isSocketConnected),
     [auctionStatus, isSocketConnected],
   );
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'CHAT') {
@@ -115,6 +142,15 @@ export default function AuctionActivityPanel({
   }, [messages, activeTab, isOpen]);
 
   useEffect(() => {
+    if (!isOpen || activeTab !== 'HISTORY') return;
+
+    historyEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end',
+    });
+  }, [bidHistory, activeTab, isOpen]);
+
+  useEffect(() => {
     if (!auctionId) return;
 
     let isMounted = true;
@@ -128,7 +164,7 @@ export default function AuctionActivityPanel({
         const bids = response?.result || response?.data?.result || [];
 
         if (isMounted) {
-          setBidHistory(Array.isArray(bids) ? bids : []);
+          setBidHistory(Array.isArray(bids) ? bids.slice(0, 5) : []);
         }
       } catch (error) {
         console.error('Lỗi khi lấy lịch sử giá:', error);
@@ -234,10 +270,14 @@ export default function AuctionActivityPanel({
               });
 
               const isMine =
-                String(newMessage.senderId) === String(currentUserId) ||
+                String(newMessage.senderId) ===
+                  String(currentUserIdRef.current) ||
                 newMessage.messageType === 'SYSTEM';
 
-              if ((!isOpen || activeTab !== 'CHAT') && !isMine) {
+              if (
+                (!isOpenRef.current || activeTabRef.current !== 'CHAT') &&
+                !isMine
+              ) {
                 setUnreadCount((prev) => prev + 1);
               }
             } catch (error) {
@@ -259,7 +299,10 @@ export default function AuctionActivityPanel({
       },
       onWebSocketClose: (event) => {
         setIsSocketConnected(false);
-        console.error('WebSocket closed:', event);
+
+        if (event.code !== 1000) {
+          console.error('WebSocket closed unexpectedly:', event);
+        }
       },
     });
 
@@ -273,13 +316,15 @@ export default function AuctionActivityPanel({
         stompClientRef.current = null;
       }
     };
-  }, [auctionId, auctionStatus, activeTab, currentUserId, isOpen]);
+  }, [auctionId, auctionStatus]);
 
   const handleSendMessage = async () => {
     setSendError('');
 
     if (!canChat) {
-      setSendError('Chỉ có thể chat khi phiên đấu giá đang diễn ra.');
+      const message = 'Chỉ có thể chat khi phiên đấu giá đang diễn ra.';
+      setSendError(message);
+      toast.error(message);
       return;
     }
 
@@ -288,12 +333,16 @@ export default function AuctionActivityPanel({
     if (!trimmed || !auctionId || sendingMessage) return;
 
     if (trimmed.length > MAX_MESSAGE_LENGTH) {
-      setSendError(`Tin nhắn không được vượt quá ${MAX_MESSAGE_LENGTH} ký tự.`);
+      const message = `Tin nhắn không được vượt quá ${MAX_MESSAGE_LENGTH} ký tự.`;
+      setSendError(message);
+      toast.error(message);
       return;
     }
 
     if (Date.now() - lastSentAt < SEND_COOLDOWN_MS) {
-      setSendError('Bạn đang gửi quá nhanh, vui lòng chờ một chút.');
+      const message = 'Bạn đang gửi quá nhanh, vui lòng chờ một chút.';
+      setSendError(message);
+      toast.error(message);
       return;
     }
 
@@ -309,9 +358,10 @@ export default function AuctionActivityPanel({
       setSendError('');
     } catch (error) {
       console.error('Lỗi khi gửi tin nhắn:', error);
-      setSendError(
-        error?.response?.data?.message || 'Không thể gửi tin nhắn lúc này.',
-      );
+
+      const message = extractErrorMessage(error);
+      setSendError(message);
+      toast.error(message);
     } finally {
       setSendingMessage(false);
     }
@@ -330,6 +380,7 @@ export default function AuctionActivityPanel({
     } catch (error) {
       console.error('Lỗi khi tải lại chat:', error);
       setMessagesError('Không thể tải đoạn chat.');
+      toast.error('Không thể tải đoạn chat.');
     } finally {
       setLoadingMessages(false);
     }
@@ -435,9 +486,9 @@ export default function AuctionActivityPanel({
                   <MessagesSquare size={16} />
                   <span>Phòng Chat</span>
 
-                  <span className="px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-600">
+                  {/* <span className="px-1.5 py-0.5 rounded-full bg-slate-200 text-[10px] text-slate-600">
                     {participantCount}
-                  </span>
+                  </span> */}
 
                   {unreadCount > 0 && activeTab !== 'CHAT' && (
                     <span className="min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -486,7 +537,7 @@ export default function AuctionActivityPanel({
                       ) : (
                         bidHistory.map((bid, index) => (
                           <div
-                            key={bid.id}
+                            key={bid.id || `${bid.activatedAt}-${index}`}
                             className={`rounded-xl border px-3 py-3 transition-colors ${
                               index === 0
                                 ? 'border-emerald-200 bg-emerald-50'
@@ -497,23 +548,19 @@ export default function AuctionActivityPanel({
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium text-slate-800 truncate">
-                                    {bid.bidderMaskedName}
+                                    {bid.bidderMaskedName || 'Người dùng'}
                                   </span>
-
-                                  {index === 0 && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold">
-                                      Mới nhất
-                                    </span>
-                                  )}
                                 </div>
-
-                                <div className="text-xs text-slate-500 mt-1">
+                                <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                                  <Clock3 size={12} />
                                   {formatTime(bid.activatedAt)}
                                 </div>
                               </div>
 
-                              <div className="text-sm font-bold text-slate-900">
-                                {formatCurrency(bid.amount)}
+                              <div className="text-right shrink-0">
+                                <div className="text-sm font-bold text-emerald-600">
+                                  {formatCurrency(bid.amount)}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -524,90 +571,79 @@ export default function AuctionActivityPanel({
                   )}
 
                   {activeTab === 'CHAT' && (
-                    <div className="space-y-3 pb-3">
+                    <div className="space-y-3">
                       {loadingMessages ? (
-                        <div className="text-sm text-slate-500 text-center py-6">
-                          Đang tải đoạn chat...
+                        <div className="flex items-center justify-center py-6 text-sm text-slate-500">
+                          <Loader2 size={16} className="mr-2 animate-spin" />
+                          Đang tải chat...
                         </div>
                       ) : messagesError ? (
-                        <div className="py-8 text-center">
-                          <div className="inline-flex flex-col items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4">
-                            <div className="inline-flex items-center gap-2 text-sm font-medium text-rose-700">
-                              <AlertCircle size={16} />
-                              {messagesError}
-                            </div>
-
-                            <button
-                              onClick={handleRetryMessages}
-                              className="h-10 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
-                            >
-                              Tải lại
-                            </button>
+                        <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                          <div className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                            <AlertCircle size={16} />
+                            {messagesError}
                           </div>
+                          <button
+                            onClick={handleRetryMessages}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Thử lại
+                          </button>
                         </div>
                       ) : messages.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10 flex flex-col items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                            <MessageCircle size={20} />
-                          </div>
-                          <div>
-                            <div className="font-medium text-slate-700">
-                              Chưa có tin nhắn nào
-                            </div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              {canChat
-                                ? 'Hãy bắt đầu cuộc trò chuyện trong phiên đấu giá.'
-                                : 'Phòng chat sẽ mở khi phiên chuyển sang trạng thái đang diễn ra.'}
-                            </div>
-                          </div>
+                        <div className="text-sm text-slate-500 text-center py-6">
+                          Chưa có tin nhắn nào.
                         </div>
                       ) : (
-                        messages.map((msg) => {
-                          if (msg.messageType === 'SYSTEM') {
-                            return (
-                              <div key={msg.id} className="flex justify-center">
-                                <div className="max-w-[90%] text-center text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-3 py-1.5">
-                                  {msg.content}
-                                </div>
-                              </div>
-                            );
-                          }
-
+                        messages.map((msg, index) => {
                           const isMine =
-                            String(msg.senderId) === String(currentUserId);
+                            String(msg.senderId || msg.userId || '') ===
+                            String(currentUserId || '');
 
                           return (
                             <div
-                              key={msg.id}
-                              className={`flex flex-col ${
-                                isMine ? 'items-end' : 'items-start'
-                              }`}
+                              key={
+                                msg.id ||
+                                `${msg.sentAt || msg.createdAt}-${index}`
+                              }
+                              className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                             >
-                              <div className="text-[11px] text-slate-400 mb-1 px-1">
-                                {msg.senderDisplayName} •{' '}
-                                {formatTime(msg.sentAt)}
-                              </div>
-
                               <div
-                                className={`max-w-[85%] px-3 py-2 text-sm wrap-break-word shadow-sm ${
+                                className={`max-w-[80%] rounded-2xl px-3 py-2 shadow-sm ${
                                   isMine
-                                    ? 'bg-slate-900 text-white rounded-2xl rounded-br-md'
-                                    : 'bg-slate-100 text-slate-700 rounded-2xl rounded-bl-md'
+                                    ? 'bg-slate-900 text-white rounded-br-md'
+                                    : msg.messageType === 'SYSTEM'
+                                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                      : 'bg-slate-100 text-slate-800 rounded-bl-md'
                                 }`}
                               >
-                                {msg.content}
+                                <div className="text-xs font-semibold mb-1 opacity-80">
+                                  {msg.senderDisplayName ||
+                                    msg.senderName ||
+                                    msg.username ||
+                                    (msg.messageType === 'SYSTEM'
+                                      ? 'Hệ thống'
+                                      : 'Người dùng')}
+                                </div>
+                                <div className="text-sm whitespace-pre-wrap wrap-break-word">
+                                  {msg.content}
+                                </div>
+                                <div className="mt-1 text-[11px] opacity-60">
+                                  {formatTime(msg.sentAt || msg.createdAt)}
+                                </div>
                               </div>
                             </div>
                           );
                         })
                       )}
+                      <div ref={chatEndRef} />
                     </div>
                   )}
-                  <div ref={chatEndRef} />
                 </div>
 
                 {activeTab === 'CHAT' && (
                   <div className="shrink-0 border-t border-slate-200 bg-white p-3">
+                    {/* Thông báo khóa chat */}
                     {!canChat && (
                       <div className="mb-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                         <Clock3 size={14} />
@@ -615,6 +651,7 @@ export default function AuctionActivityPanel({
                       </div>
                     )}
 
+                    {/* Thông báo lỗi gửi */}
                     {sendError && (
                       <div className="mb-2 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                         <AlertCircle size={14} />
@@ -622,6 +659,7 @@ export default function AuctionActivityPanel({
                       </div>
                     )}
 
+                    {/* KHUNG CHAT STYLE CŨ (Input và Button nằm chung) */}
                     <div className="flex items-end gap-2 rounded-3xl border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-slate-400 transition-colors">
                       <div className="flex-1">
                         <input
@@ -647,18 +685,19 @@ export default function AuctionActivityPanel({
                           className="w-full bg-transparent text-sm outline-none text-slate-800 placeholder:text-slate-400 disabled:cursor-not-allowed"
                         />
 
+                        {/* Dòng hướng dẫn và đếm ký tự bên dưới input */}
                         <div className="mt-1 flex items-center justify-between px-1">
                           <span className="text-[11px] text-slate-400">
                             {!canChat
                               ? 'Phòng chat hiện đang bị khóa'
                               : isCooldownActive
-                                ? 'Bạn đang gửi quá nhanh, vui lòng chờ...'
+                                ? 'Bạn đang gửi quá nhanh...'
                                 : 'Enter để gửi'}
                           </span>
 
                           <span
                             className={`text-[11px] ${
-                              remainingChars < 40
+                              chatMessage.length > MAX_MESSAGE_LENGTH - 20
                                 ? 'text-amber-600'
                                 : 'text-slate-400'
                             }`}
@@ -668,16 +707,17 @@ export default function AuctionActivityPanel({
                         </div>
                       </div>
 
+                      {/* Nút gửi style cũ (Tròn, nhỏ gọn) */}
                       <button
                         disabled={
                           sendingMessage ||
-                          !trimmedMessage ||
+                          !chatMessage.trim() ||
                           !canChat ||
                           isCooldownActive
                         }
                         className={`w-9 h-9 rounded-full text-white flex items-center justify-center transition-colors shrink-0 ${
                           sendingMessage ||
-                          !trimmedMessage ||
+                          !chatMessage.trim() ||
                           !canChat ||
                           isCooldownActive
                             ? 'bg-slate-300 cursor-not-allowed'

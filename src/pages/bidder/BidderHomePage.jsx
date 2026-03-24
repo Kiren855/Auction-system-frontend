@@ -178,7 +178,6 @@ export default function HomePage() {
       const response = await auctionApi.getAuctions(params);
       const result = response?.result || response?.data?.result || {};
       const content = result?.content || [];
-      console.log(result);
 
       const mappedAuctions = Array.isArray(content)
         ? content.map((item) => ({
@@ -289,7 +288,13 @@ export default function HomePage() {
 
   const goToAuctionDetail = (auctionId) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate(`/home/auctions/${auctionId}`);
+
+    navigate(`/bidder/auctions`, {
+      state: {
+        showSuccessToast: true,
+        message: 'Thanh toán thành công 🎉',
+      },
+    });
   };
 
   const handleJoinAuctionClick = (auction) => {
@@ -561,7 +566,7 @@ export default function HomePage() {
           </div>
 
           {auctionsLoading ? (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               <CardSkeleton />
               <CardSkeleton />
               <CardSkeleton />
@@ -593,7 +598,7 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {auctions.map((auction) => (
                   <AuctionCard
                     key={auction.id}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import ConfirmModal from '../../components/ConfirmModal';
 import NotificationToast from '../../components/NotificationToast';
@@ -9,6 +9,7 @@ import AuctionActivityPanel from '../../components/auction-room/AuctionActivityP
 import { auctionApi } from '../../api/auctionApi';
 import { biddingApi } from '../../api/biddingApi';
 import { useAuth } from '../../context/AuthContext';
+import { useAuctionRoomRealtime } from '../../hooks/useAuctionRoomRealtime';
 
 function calculateRemainingTime(startAt, endAt) {
   if (!startAt || !endAt) return '--:--:--';
@@ -48,6 +49,7 @@ function normalizeAuctionDetail(data) {
       data.start_price ??
       0,
   );
+
   const stepPrice = Number(data.stepPrice ?? data.step_price ?? 0);
   const startPrice = Number(data.startPrice ?? data.start_price ?? 0);
   const minNextPrice = currentPrice + stepPrice;
@@ -116,6 +118,11 @@ export default function BidderAuctionRoom() {
   const [savingAutoBid, setSavingAutoBid] = useState(false);
   const [disablingAutoBid, setDisablingAutoBid] = useState(false);
 
+  const [initialBidHistory, setInitialBidHistory] = useState([]);
+  const [initialMessages, setInitialMessages] = useState([]);
+
+  const bidInputTouchedRef = useRef(false);
+
   const [confirmState, setConfirmState] = useState({
     isOpen: false,
     mode: null,
@@ -139,19 +146,22 @@ export default function BidderAuctionRoom() {
     [],
   );
 
-  const removeNotification = (id) => {
+  const removeNotification = useCallback((id) => {
     setNotifications((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
   const loadAuctionRoom = useCallback(
     async ({ keepBidValue = false, keepAutoBidValue = false } = {}) => {
       try {
         setLoading(true);
 
-        const [auctionRes, autoBidRes] = await Promise.allSettled([
-          auctionApi.getAuctionDetail(auctionId),
-          biddingApi.getMyAutoBidStatus(auctionId),
-        ]);
+        const [auctionRes, autoBidRes, latestBidsRes, messagesRes] =
+          await Promise.allSettled([
+            auctionApi.getAuctionDetail(auctionId),
+            biddingApi.getMyAutoBidStatus(auctionId),
+            biddingApi.getHistoryLatestBids(auctionId),
+            biddingApi.getAuctionMessages(auctionId),
+          ]);
 
         const auctionData =
           auctionRes.status === 'fulfilled'
@@ -164,8 +174,8 @@ export default function BidderAuctionRoom() {
         }
 
         const normalizedAuction = normalizeAuctionDetail(auctionData);
-        setAuction(normalizedAuction);
 
+        setAuction(normalizedAuction);
         setRemaining(
           calculateRemainingTime(
             normalizedAuction.startAt,
@@ -173,7 +183,22 @@ export default function BidderAuctionRoom() {
           ),
         );
 
+        if (latestBidsRes.status === 'fulfilled') {
+          const bids = getResponseData(latestBidsRes.value) || [];
+          setInitialBidHistory(Array.isArray(bids) ? bids : []);
+        } else {
+          setInitialBidHistory([]);
+        }
+
+        if (messagesRes.status === 'fulfilled') {
+          const msgs = getResponseData(messagesRes.value) || [];
+          setInitialMessages(Array.isArray(msgs) ? msgs : []);
+        } else {
+          setInitialMessages([]);
+        }
+
         if (!keepBidValue) {
+          bidInputTouchedRef.current = false;
           setBidAmount(String(normalizedAuction.minNextPrice));
         } else {
           setBidAmount((prev) =>
@@ -251,6 +276,109 @@ export default function BidderAuctionRoom() {
   useEffect(() => {
     loadAuctionRoom();
   }, [loadAuctionRoom]);
+
+  const handleBidAmountChange = useCallback((value) => {
+    bidInputTouchedRef.current = true;
+    setBidAmount(value);
+  }, []);
+
+  const {
+    bidHistory: realtimeBidHistory,
+    messages: realtimeMessages,
+    isSocketConnected,
+    sendChatMessage,
+  } = useAuctionRoomRealtime({
+    auctionId,
+    auctionStatus: auction?.status,
+    currentUserId: user?.userId,
+    initialBidHistory,
+    initialMessages,
+    onLatestBid: (bidEvent) => {
+      const liveAmount = Number(bidEvent?.amount ?? 0);
+      if (!liveAmount) return;
+
+      setAuction((prev) => {
+        if (!prev) return prev;
+
+        const nextMinPrice = liveAmount + Number(prev.stepPrice || 0);
+
+        return {
+          ...prev,
+          currentPrice: liveAmount,
+          minNextPrice: nextMinPrice,
+          highestBidderId:
+            bidEvent?.bidderId ??
+            bidEvent?.highestBidderId ??
+            prev.highestBidderId,
+          bidCount: Number(prev.bidCount || 0) + 1,
+        };
+      });
+
+      setAutoBidStatus((prev) => {
+        if (!prev) return prev;
+
+        const isLeading =
+          bidEvent?.bidderId != null &&
+          String(bidEvent.bidderId) === String(user?.userId);
+
+        return {
+          ...prev,
+          currentPrice: liveAmount,
+          highestBidderId:
+            bidEvent?.bidderId ??
+            bidEvent?.highestBidderId ??
+            prev.highestBidderId,
+          currentlyLeading:
+            bidEvent?.bidderId != null ? isLeading : prev.currentlyLeading,
+          currentlyOutbid:
+            bidEvent?.bidderId != null ? !isLeading : prev.currentlyOutbid,
+        };
+      });
+
+      setBidAmount((prev) => {
+        const nextMin = liveAmount + Number(auction?.stepPrice || 0);
+
+        if (!bidInputTouchedRef.current) {
+          return String(nextMin);
+        }
+
+        if (!prev) return String(nextMin);
+        return Number(prev) < nextMin ? String(nextMin) : prev;
+      });
+    },
+    onAuctionUpdate: (liveData) => {
+      setAuction((prev) => {
+        if (!prev) return prev;
+
+        const nextCurrentPrice = Number(
+          liveData.currentPrice ?? prev.currentPrice ?? 0,
+        );
+        const nextStepPrice = Number(liveData.stepPrice ?? prev.stepPrice ?? 0);
+
+        return {
+          ...prev,
+          currentPrice: nextCurrentPrice,
+          stepPrice: nextStepPrice,
+          minNextPrice: Number(
+            liveData.minNextPrice ?? nextCurrentPrice + nextStepPrice,
+          ),
+          highestBidderId: liveData.highestBidderId ?? prev.highestBidderId,
+          status: liveData.status ?? prev.status,
+          endAt: liveData.endAt ?? prev.endAt,
+          participantCount: Number(
+            liveData.participantCount ?? prev.participantCount ?? 0,
+          ),
+          bidCount: Number(liveData.bidCount ?? prev.bidCount ?? 0),
+        };
+      });
+    },
+    onAutoBidUpdate: (liveAutoBid) => {
+      setAutoBidStatus((prev) => ({
+        ...prev,
+        ...liveAutoBid,
+      }));
+    },
+  });
 
   useEffect(() => {
     if (!auction?.startAt || !auction?.endAt) return;
@@ -382,6 +510,7 @@ export default function BidderAuctionRoom() {
           message: `Bạn đã đặt giá ${formatCurrency(bidAmount)}.`,
         });
 
+        bidInputTouchedRef.current = false;
         await loadAuctionRoom({ keepBidValue: false, keepAutoBidValue: true });
       } catch (error) {
         const message =
@@ -480,11 +609,11 @@ export default function BidderAuctionRoom() {
     return (
       <div className="min-h-screen bg-slate-100 p-6">
         <div className="max-w-350 mx-auto animate-pulse space-y-6">
-          <div className="h-6 w-48 bg-slate-200 rounded" />
-          <div className="h-12 w-96 bg-slate-200 rounded" />
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6">
-            <div className="h-155 bg-white rounded-3xl border border-slate-200" />
-            <div className="h-155 bg-white rounded-3xl border border-slate-200" />
+          <div className="h-6 w-48 rounded bg-slate-200" />
+          <div className="h-12 w-96 rounded bg-slate-200" />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="h-155 rounded-3xl border border-slate-200 bg-white" />
+            <div className="h-155 rounded-3xl border border-slate-200 bg-white" />
           </div>
         </div>
       </div>
@@ -542,7 +671,7 @@ export default function BidderAuctionRoom() {
               auction={auction}
               remaining={remaining}
               bidAmount={bidAmount}
-              setBidAmount={setBidAmount}
+              setBidAmount={handleBidAmountChange}
               placingBid={placingBid}
               autoBidAmount={autoBidAmount}
               setAutoBidAmount={setAutoBidAmount}
@@ -563,6 +692,10 @@ export default function BidderAuctionRoom() {
         auctionId={auction?.id}
         auctionStatus={auction?.status}
         currentUserId={user?.userId}
+        bidHistory={realtimeBidHistory}
+        messages={realtimeMessages}
+        isSocketConnected={isSocketConnected}
+        onSendMessage={sendChatMessage}
       />
     </div>
   );
