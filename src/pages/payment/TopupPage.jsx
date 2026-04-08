@@ -309,9 +309,6 @@ const TopupPage = () => {
                             <h3 className="text-lg font-bold text-slate-900">
                               {pkg.name}
                             </h3>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {pkg.description || 'Gói nạp dành cho ví của bạn'}
-                            </p>
                           </div>
 
                           <div className="mt-5">

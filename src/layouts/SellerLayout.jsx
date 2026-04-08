@@ -105,7 +105,7 @@ const SellerLayout = () => {
 
       {/* --- Main Content Area --- */}
       <main
-        className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}
+        className={`flex-1 min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}
       >
         <header className="h-15 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
           <h2 className="text-lg font-bold text-slate-800 tracking-tight"></h2>

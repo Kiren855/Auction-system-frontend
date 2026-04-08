@@ -45,4 +45,10 @@ export const paymentApi = {
       `/payment/api/v1/auction-settlements/${auctionId}/create-payment-order`,
     );
   },
+
+  getMyWalletTransactions(params) {
+    return axiosClient.get('/payment/api/v1/wallet-transactions/me', {
+      params,
+    });
+  },
 };
