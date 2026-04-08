@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { auctionApi } from '../../api/auctionApi';
 import { useServerCountdown } from '../../hooks/useServerTimeCountdown';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import Pagination from '../../components/common/Pagination';
 
 const STATUS_OPTIONS = [
@@ -14,21 +15,38 @@ const STATUS_OPTIONS = [
 ];
 
 export default function AuctionList() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialPage = Math.max(Number(searchParams.get('page') || 1) - 1, 0);
+  const initialKeyword = searchParams.get('keyword') || '';
+  const initialStatus = searchParams.get('status') || '';
+
   const [auctions, setAuctions] = useState([]);
   const [serverTime, setServerTime] = useState(null);
-  const [page, setPage] = useState(0);
+
+  const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
 
-  const [status, setStatus] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [keyword, setKeyword] = useState('');
+  const [status, setStatus] = useState(initialStatus);
+  const [searchInput, setSearchInput] = useState(initialKeyword);
+  const [keyword, setKeyword] = useState(initialKeyword);
 
-  const navigate = useNavigate();
+  useEffect(() => {
+    const params = {};
+
+    if (page > 0) params.page = String(page + 1);
+    if (keyword) params.keyword = keyword;
+    if (status) params.status = status;
+
+    setSearchParams(params, { replace: true });
+  }, [page, keyword, status, setSearchParams]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setKeyword(searchInput.trim());
+      const trimmed = searchInput.trim();
+      setKeyword(trimmed);
       setPage(0);
     }, 400);
 
@@ -186,10 +204,11 @@ export default function AuctionList() {
   const handlePageChange = (nextPage) => {
     if (nextPage < 0 || nextPage >= totalPages) return;
     setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-10">
+    <div className="min-h-screen bg-gray-100 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="rounded-2xl border border-gray-200 bg-white px-8 py-8 shadow-sm">
           <div className="flex items-center justify-between">
@@ -209,13 +228,16 @@ export default function AuctionList() {
 
           <div className="mb-6 flex flex-col gap-3 md:flex-row">
             <div className="flex-1">
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Tìm theo tên phiên đấu giá..."
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
-              />
+              <div className="flex h-10 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 transition-all focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200">
+                <Search size={16} className="shrink-0 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Tìm theo tên phiên đấu giá..."
+                  className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                />
+              </div>
             </div>
 
             <div className="md:w-56">
@@ -288,7 +310,7 @@ export default function AuctionList() {
                     className="group cursor-pointer rounded-xl border border-gray-200 bg-gray-50 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:bg-white hover:shadow-lg"
                   >
                     <div className="flex gap-5">
-                      <div className="flex flex-1 min-w-0 gap-4">
+                      <div className="flex min-w-0 flex-1 gap-4">
                         <div className="shrink-0">
                           {auction.thumbnail_url ? (
                             <img
@@ -356,6 +378,7 @@ export default function AuctionList() {
                           </div>
                         </div>
                       </div>
+
                       <div className="shrink-0">
                         <button
                           type="button"
@@ -363,7 +386,7 @@ export default function AuctionList() {
                             e.stopPropagation();
                             navigate(`/seller/auctions/${auction.id}`);
                           }}
-                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-400"
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
                         >
                           Xem chi tiết
                         </button>

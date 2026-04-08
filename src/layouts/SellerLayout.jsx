@@ -67,7 +67,7 @@ const SellerLayout = () => {
         className={`${isCollapsed ? 'w-20' : 'w-64'} bg-slate-900 transition-all duration-300 flex flex-col fixed inset-y-0 z-50`}
       >
         {/* Sidebar Header */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+        <div className="h-15 flex items-center justify-between px-6 border-b border-slate-800">
           {!isCollapsed && (
             <span className="text-white font-bold tracking-tighter text-xl">
               MENU
@@ -107,10 +107,8 @@ const SellerLayout = () => {
       <main
         className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}
       >
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
-          <h2 className="text-lg font-bold text-slate-800 tracking-tight">
-            Seller Dashboard
-          </h2>
+        <header className="h-15 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
+          <h2 className="text-lg font-bold text-slate-800 tracking-tight"></h2>
 
           <div className="flex items-center gap-6">
             {/* Notification Bell */}

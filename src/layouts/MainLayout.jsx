@@ -10,7 +10,7 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans text-slate-900">
       {/* --- Navigation Bar --- */}
-      <nav className="h-20 border-b border-slate-100 px-8 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-50">
+      <nav className="h-15 border-b border-slate-100 px-8 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-50">
         {/* Logo */}
         <div
           className="flex items-center gap-2 cursor-pointer group"
