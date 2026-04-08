@@ -212,7 +212,36 @@ export default function BidderAuctionRoom() {
 
         if (autoBidRes.status === 'fulfilled') {
           latestAutoBidStatus = getResponseData(autoBidRes.value);
-          setAutoBidStatus(latestAutoBidStatus);
+
+          if (latestAutoBidStatus) {
+            const isLeading =
+              String(normalizedAuction.highestBidderId || '') ===
+              String(user?.userId || '');
+
+            setAutoBidStatus({
+              ...latestAutoBidStatus,
+              currentPrice: normalizedAuction.currentPrice,
+              highestBidderId: normalizedAuction.highestBidderId,
+              currentlyLeading: isLeading,
+              currentlyOutbid:
+                !!latestAutoBidStatus.enabled &&
+                !isLeading &&
+                Number(latestAutoBidStatus.maxBidAmount || 0) > 0 &&
+                Number(latestAutoBidStatus.maxBidAmount || 0) <
+                  Number(normalizedAuction.currentPrice || 0),
+            });
+          } else {
+            setAutoBidStatus({
+              enabled: false,
+              maxBidAmount: null,
+              currentlyLeading:
+                String(normalizedAuction.highestBidderId || '') ===
+                String(user?.userId || ''),
+              currentlyOutbid: false,
+              currentPrice: normalizedAuction.currentPrice,
+              highestBidderId: normalizedAuction.highestBidderId,
+            });
+          }
         } else {
           setAutoBidStatus({
             enabled: false,
@@ -282,6 +311,10 @@ export default function BidderAuctionRoom() {
     setBidAmount(value);
   }, []);
 
+  const handleAutoBidAmountChange = useCallback((value) => {
+    setAutoBidAmount(value);
+  }, []);
+
   const {
     bidHistory: realtimeBidHistory,
     messages: realtimeMessages,
@@ -293,90 +326,134 @@ export default function BidderAuctionRoom() {
     currentUserId: user?.userId,
     initialBidHistory,
     initialMessages,
+
     onLatestBid: (bidEvent) => {
       const liveAmount = Number(bidEvent?.amount ?? 0);
       if (!liveAmount) return;
 
+      let nextMinFromAuction = liveAmount;
+
       setAuction((prev) => {
         if (!prev) return prev;
 
-        const nextMinPrice = liveAmount + Number(prev.stepPrice || 0);
+        const stepPrice = Number(prev.stepPrice || 0);
+        const nextMinPrice = liveAmount + stepPrice;
+        nextMinFromAuction = nextMinPrice;
 
         return {
           ...prev,
           currentPrice: liveAmount,
           minNextPrice: nextMinPrice,
-          highestBidderId:
-            bidEvent?.bidderId ??
-            bidEvent?.highestBidderId ??
-            prev.highestBidderId,
-          bidCount: Number(prev.bidCount || 0) + 1,
-        };
-      });
-
-      setAutoBidStatus((prev) => {
-        if (!prev) return prev;
-
-        const isLeading =
-          bidEvent?.bidderId != null &&
-          String(bidEvent.bidderId) === String(user?.userId);
-
-        return {
-          ...prev,
-          currentPrice: liveAmount,
-          highestBidderId:
-            bidEvent?.bidderId ??
-            bidEvent?.highestBidderId ??
-            prev.highestBidderId,
-          currentlyLeading:
-            bidEvent?.bidderId != null ? isLeading : prev.currentlyLeading,
-          currentlyOutbid:
-            bidEvent?.bidderId != null ? !isLeading : prev.currentlyOutbid,
         };
       });
 
       setBidAmount((prev) => {
-        const nextMin = liveAmount + Number(auction?.stepPrice || 0);
-
         if (!bidInputTouchedRef.current) {
-          return String(nextMin);
+          return String(nextMinFromAuction);
         }
 
-        if (!prev) return String(nextMin);
-        return Number(prev) < nextMin ? String(nextMin) : prev;
+        if (!prev) return String(nextMinFromAuction);
+        return Number(prev) < nextMinFromAuction
+          ? String(nextMinFromAuction)
+          : prev;
       });
     },
+
     onAuctionUpdate: (liveData) => {
       setAuction((prev) => {
         if (!prev) return prev;
 
         const nextCurrentPrice = Number(
-          liveData.currentPrice ?? prev.currentPrice ?? 0,
+          liveData?.currentPrice ??
+            liveData?.current_price ??
+            prev.currentPrice ??
+            0,
         );
-        const nextStepPrice = Number(liveData.stepPrice ?? prev.stepPrice ?? 0);
+
+        const nextStepPrice = Number(
+          liveData?.stepPrice ?? liveData?.step_price ?? prev.stepPrice ?? 0,
+        );
+
+        const nextMinNextPrice = Number(
+          liveData?.minNextPrice ??
+            liveData?.min_next_price ??
+            nextCurrentPrice + nextStepPrice,
+        );
+
+        const nextHighestBidderId =
+          liveData?.highestBidderId ??
+          liveData?.highest_bidder_id ??
+          prev.highestBidderId ??
+          null;
+
+        const nextStatus = liveData?.status ?? prev.status;
+        const nextEndAt = liveData?.endAt ?? liveData?.end_at ?? prev.endAt;
+
+        const nextParticipantCount = Number(
+          liveData?.participantCount ??
+            liveData?.participant_count ??
+            prev.participantCount ??
+            0,
+        );
+
+        const nextBidCount = Number(
+          liveData?.bidCount ?? liveData?.bid_count ?? prev.bidCount ?? 0,
+        );
 
         return {
           ...prev,
           currentPrice: nextCurrentPrice,
           stepPrice: nextStepPrice,
-          minNextPrice: Number(
-            liveData.minNextPrice ?? nextCurrentPrice + nextStepPrice,
-          ),
-          highestBidderId: liveData.highestBidderId ?? prev.highestBidderId,
-          status: liveData.status ?? prev.status,
-          endAt: liveData.endAt ?? prev.endAt,
-          participantCount: Number(
-            liveData.participantCount ?? prev.participantCount ?? 0,
-          ),
-          bidCount: Number(liveData.bidCount ?? prev.bidCount ?? 0),
+          minNextPrice: nextMinNextPrice,
+          highestBidderId: nextHighestBidderId,
+          status: nextStatus,
+          endAt: nextEndAt,
+          participantCount: nextParticipantCount,
+          bidCount: nextBidCount,
         };
       });
     },
+
     onAutoBidUpdate: (liveAutoBid) => {
-      setAutoBidStatus((prev) => ({
-        ...prev,
-        ...liveAutoBid,
-      }));
+      setAutoBidStatus((prev) => {
+        const current = prev ?? {
+          enabled: false,
+          maxBidAmount: null,
+          currentlyLeading: false,
+          currentlyOutbid: false,
+          currentPrice: 0,
+          highestBidderId: null,
+        };
+
+        return {
+          ...current,
+          ...liveAutoBid,
+          maxBidAmount:
+            liveAutoBid?.maxBidAmount ??
+            liveAutoBid?.max_bid_amount ??
+            current.maxBidAmount,
+          enabled: liveAutoBid?.enabled ?? current.enabled,
+          currentlyLeading:
+            liveAutoBid?.currentlyLeading ??
+            liveAutoBid?.currently_leading ??
+            current.currentlyLeading,
+          currentlyOutbid:
+            liveAutoBid?.currentlyOutbid ??
+            liveAutoBid?.currently_outbid ??
+            current.currentlyOutbid,
+          currentPrice: Number(
+            liveAutoBid?.currentPrice ??
+              liveAutoBid?.current_price ??
+              current.currentPrice ??
+              0,
+          ),
+          highestBidderId:
+            liveAutoBid?.highestBidderId ??
+            liveAutoBid?.highest_bidder_id ??
+            current.highestBidderId ??
+            null,
+        };
+      });
     },
   });
 
@@ -389,6 +466,39 @@ export default function BidderAuctionRoom() {
 
     return () => clearInterval(timer);
   }, [auction?.startAt, auction?.endAt]);
+
+  useEffect(() => {
+    if (!auction?.minNextPrice) return;
+    if (bidInputTouchedRef.current) return;
+
+    setBidAmount(String(auction.minNextPrice));
+  }, [auction?.minNextPrice]);
+
+  useEffect(() => {
+    if (!auction || !user?.userId) return;
+
+    setAutoBidStatus((prev) => {
+      if (!prev) return prev;
+
+      const isLeading =
+        String(auction.highestBidderId || '') === String(user.userId);
+
+      const currentPrice = Number(auction.currentPrice || 0);
+      const maxBidAmount = Number(prev.maxBidAmount || 0);
+
+      return {
+        ...prev,
+        currentPrice,
+        highestBidderId: auction.highestBidderId,
+        currentlyLeading: isLeading,
+        currentlyOutbid:
+          !!prev.enabled &&
+          maxBidAmount > 0 &&
+          !isLeading &&
+          maxBidAmount < currentPrice,
+      };
+    });
+  }, [auction?.highestBidderId, auction?.currentPrice, user?.userId]);
 
   const canBid = useMemo(() => {
     return auction?.status === 'ONGOING' && remaining !== '00:00:00';
@@ -536,7 +646,6 @@ export default function BidderAuctionRoom() {
     if (confirmState.mode === 'AUTO_BID') {
       try {
         setSavingAutoBid(true);
-
         await biddingApi.createOrUpdateAutoBid(
           auctionId,
           Number(autoBidAmount),
@@ -576,7 +685,6 @@ export default function BidderAuctionRoom() {
     if (confirmState.mode === 'DISABLE_AUTO_BID') {
       try {
         setDisablingAutoBid(true);
-
         await biddingApi.disableAutoBid(auctionId);
 
         resetConfirmState();
@@ -671,10 +779,10 @@ export default function BidderAuctionRoom() {
               auction={auction}
               remaining={remaining}
               bidAmount={bidAmount}
-              setBidAmount={handleBidAmountChange}
+              onBidAmountChange={handleBidAmountChange}
               placingBid={placingBid}
               autoBidAmount={autoBidAmount}
-              setAutoBidAmount={setAutoBidAmount}
+              onAutoBidAmountChange={handleAutoBidAmountChange}
               autoBidStatus={autoBidStatus}
               savingAutoBid={savingAutoBid}
               disablingAutoBid={disablingAutoBid}

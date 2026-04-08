@@ -62,7 +62,7 @@ const LoginPage = () => {
 
     try {
       await login(data);
-      navigate('/home/dashboard');
+      navigate('/dashboard');
     } catch (error) {
       setAuthError(
         error?.response?.data?.message ||

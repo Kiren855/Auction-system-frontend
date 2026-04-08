@@ -5,6 +5,11 @@ function normalizeArray(data) {
   return Array.isArray(data) ? data : [];
 }
 
+function unwrapPayload(raw) {
+  if (!raw) return null;
+  return raw.data ?? raw.result ?? raw;
+}
+
 export function useAuctionRoomRealtime({
   auctionId,
   auctionStatus,
@@ -72,7 +77,10 @@ export function useAuctionRoomRealtime({
           `/topic/auctions/${auctionId}/latest-bids`,
           (frame) => {
             try {
-              const newBid = JSON.parse(frame.body);
+              const raw = JSON.parse(frame.body);
+              const newBid = unwrapPayload(raw);
+
+              if (!newBid) return;
 
               setBidHistory((prev) => {
                 const filtered = prev.filter((item) => item.id !== newBid.id);
@@ -80,11 +88,6 @@ export function useAuctionRoomRealtime({
               });
 
               onLatestBidRef.current?.(newBid);
-              onAuctionUpdateRef.current?.({
-                currentPrice: Number(newBid.amount ?? 0),
-                bidderId: newBid.bidderId ?? null,
-                highestBidderId: newBid.bidderId ?? null,
-              });
             } catch (error) {
               console.error('Parse latest bid failed:', error);
             }
@@ -93,7 +96,10 @@ export function useAuctionRoomRealtime({
 
         client.subscribe(`/topic/auctions/${auctionId}/chat`, (frame) => {
           try {
-            const newMessage = JSON.parse(frame.body);
+            const raw = JSON.parse(frame.body);
+            const newMessage = unwrapPayload(raw);
+
+            if (!newMessage) return;
 
             setMessages((prev) => {
               const filtered = prev.filter((item) => item.id !== newMessage.id);
@@ -104,25 +110,31 @@ export function useAuctionRoomRealtime({
           }
         });
 
-        // Mở topic này nếu backend của bạn có publish
-        // client.subscribe(`/topic/auctions/${auctionId}/auto-bid`, (frame) => {
-        //   try {
-        //     const payload = JSON.parse(frame.body);
-        //     onAutoBidUpdateRef.current?.(payload);
-        //   } catch (error) {
-        //     console.error('Parse auto bid failed:', error);
-        //   }
-        // });
+        client.subscribe(`/topic/auctions/${auctionId}`, (frame) => {
+          try {
+            const raw = JSON.parse(frame.body);
+            const payload = unwrapPayload(raw);
 
-        // Mở topic này nếu backend của bạn có publish
-        // client.subscribe(`/topic/auctions/${auctionId}`, (frame) => {
-        //   try {
-        //     const payload = JSON.parse(frame.body);
-        //     onAuctionUpdateRef.current?.(payload?.data ?? payload);
-        //   } catch (error) {
-        //     console.error('Parse auction update failed:', error);
-        //   }
-        // });
+            if (!payload) return;
+
+            onAuctionUpdateRef.current?.(payload);
+          } catch (error) {
+            console.error('Parse auction update failed:', error);
+          }
+        });
+
+        client.subscribe(`/topic/auctions/${auctionId}/auto-bid`, (frame) => {
+          try {
+            const raw = JSON.parse(frame.body);
+            const payload = unwrapPayload(raw);
+
+            if (!payload) return;
+
+            onAutoBidUpdateRef.current?.(payload);
+          } catch (error) {
+            console.error('Parse auto bid failed:', error);
+          }
+        });
       },
       onDisconnect: () => {
         setIsSocketConnected(false);
@@ -152,7 +164,7 @@ export function useAuctionRoomRealtime({
       }
       setIsSocketConnected(false);
     };
-  }, [auctionId, auctionStatus]);
+  }, [auctionId, auctionStatus, currentUserId]);
 
   const sendChatMessage = useCallback(
     (payload) => {

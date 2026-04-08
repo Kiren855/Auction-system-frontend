@@ -1,6 +1,13 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import InfoTooltip from './InfoTooltip';
-import { CheckCircle2, Trophy, Ban, Radio, TrendingUp } from 'lucide-react';
+import {
+  CheckCircle2,
+  Trophy,
+  Ban,
+  Radio,
+  TrendingUp,
+  Bot,
+} from 'lucide-react';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN').format(Number(value || 0)) + 'đ';
@@ -97,10 +104,10 @@ export default function AuctionBidPanel({
   auction,
   remaining,
   bidAmount,
-  setBidAmount,
+  onBidAmountChange,
   placingBid,
   autoBidAmount,
-  setAutoBidAmount,
+  onAutoBidAmountChange,
   autoBidStatus,
   savingAutoBid,
   disablingAutoBid,
@@ -113,15 +120,14 @@ export default function AuctionBidPanel({
 
   const quickBidOptions = useMemo(() => {
     if (!auction) return [];
-    return [
-      auction.minNextPrice,
-      auction.minNextPrice + auction.stepPrice,
-      auction.minNextPrice + auction.stepPrice * 2,
-    ];
+    const min = Number(auction.minNextPrice || 0);
+    const step = Number(auction.stepPrice || 0);
+
+    return [min, min + step, min + step * 2];
   }, [auction]);
 
   const manualBidError = useMemo(() => {
-    if (!auction || !bidAmount) return '';
+    if (!auction || bidAmount === '' || bidAmount == null) return '';
 
     const amount = Number(bidAmount);
 
@@ -129,7 +135,7 @@ export default function AuctionBidPanel({
       return 'Vui lòng nhập số tiền hợp lệ.';
     }
 
-    if (amount < auction.minNextPrice) {
+    if (amount < Number(auction.minNextPrice || 0)) {
       return `Giá đặt phải từ ${formatCurrency(auction.minNextPrice)} trở lên.`;
     }
 
@@ -137,7 +143,7 @@ export default function AuctionBidPanel({
   }, [auction, bidAmount]);
 
   const autoBidError = useMemo(() => {
-    if (!auction || !autoBidAmount) return '';
+    if (!auction || autoBidAmount === '' || autoBidAmount == null) return '';
 
     const amount = Number(autoBidAmount);
 
@@ -145,7 +151,7 @@ export default function AuctionBidPanel({
       return 'Vui lòng nhập mức auto bid hợp lệ.';
     }
 
-    if (amount < auction.minNextPrice) {
+    if (amount < Number(auction.minNextPrice || 0)) {
       return `Mức tối đa phải từ ${formatCurrency(auction.minNextPrice)} trở lên.`;
     }
 
@@ -153,6 +159,7 @@ export default function AuctionBidPanel({
   }, [auction, autoBidAmount]);
 
   const autoBidEnabled = !!autoBidStatus?.enabled;
+  const isLastMinute = String(remaining || '').startsWith('00:00:');
 
   if (!auction) return null;
 
@@ -163,9 +170,7 @@ export default function AuctionBidPanel({
           <div className="text-sm text-slate-500">Thời gian còn lại</div>
           <div
             className={`mt-1 text-3xl font-mono font-bold tracking-wide ${
-              remaining.startsWith('00:00:')
-                ? 'animate-pulse text-red-600'
-                : 'text-slate-900'
+              isLastMinute ? 'animate-pulse text-red-600' : 'text-slate-900'
             }`}
           >
             {remaining}
@@ -206,8 +211,10 @@ export default function AuctionBidPanel({
         <div className="mt-3">
           <input
             type="number"
+            min={auction.minNextPrice}
+            step="1"
             value={bidAmount}
-            onChange={(e) => setBidAmount(e.target.value)}
+            onChange={(e) => onBidAmountChange(e.target.value)}
             disabled={!canBid}
             className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
             placeholder="Nhập số tiền"
@@ -229,7 +236,7 @@ export default function AuctionBidPanel({
             <button
               key={value}
               type="button"
-              onClick={() => setBidAmount(String(value))}
+              onClick={() => onBidAmountChange(String(value))}
               disabled={!canBid}
               className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
             >
@@ -263,27 +270,56 @@ export default function AuctionBidPanel({
           <AutoBidEnabledBadge autoBidStatus={autoBidStatus} />
         </div>
 
-        <p className="mt-2 text-xs leading-5 text-slate-500">
-          Hệ thống sẽ tự tăng giá giúp bạn cho đến mức tối đa đã thiết lập.
-          {autoBidStatus?.enabled && autoBidStatus?.maxBidAmount != null
-            ? ` Mức tối đa hiện tại: ${formatCurrency(autoBidStatus.maxBidAmount)}.`
-            : ''}
-        </p>
+        <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-700">
+          <div className="flex items-start gap-2">
+            <Bot size={14} className="mt-0.5 shrink-0" />
+            <div>
+              Auto bid sẽ tự tăng giá thay bạn cho đến mức tối đa đã đặt. Trạng
+              thái dẫn đầu sẽ cập nhật realtime theo người đang giữ giá cao
+              nhất.
+            </div>
+          </div>
+        </div>
 
-        {autoBidStatus?.enabled && autoBidStatus?.currentlyOutbid ? (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Auto bid của bạn vẫn đang bật, nhưng hiện đang bị người khác vượt.
-            Bạn có thể tăng mức tối đa để tiếp tục cạnh tranh.
+        {autoBidStatus?.enabled ? (
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">
+                Mức tối đa hiện tại
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-900">
+                {autoBidStatus.maxBidAmount != null
+                  ? formatCurrency(autoBidStatus.maxBidAmount)
+                  : '--'}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div className="text-[11px] text-slate-500">Trạng thái</div>
+              <div className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-900">
+                <Radio size={13} />
+                {autoBidStatus.currentlyLeading
+                  ? 'Bạn đang dẫn đầu'
+                  : autoBidStatus.currentlyOutbid
+                    ? 'Đã bị vượt giá'
+                    : 'Đang theo dõi'}
+              </div>
+            </div>
           </div>
         ) : null}
 
-        <div className="mt-3">
+        <div className="mt-4">
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Mức tối đa auto bid
+          </label>
           <input
             type="number"
+            min={auction.minNextPrice}
+            step="1"
             value={autoBidAmount}
-            onChange={(e) => setAutoBidAmount(e.target.value)}
+            onChange={(e) => onAutoBidAmountChange(e.target.value)}
             disabled={!canBid}
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-800 outline-none focus:ring-2 focus:ring-emerald-300 disabled:bg-slate-100 disabled:text-slate-400"
+            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-800 outline-none focus:ring-2 focus:ring-slate-400 disabled:bg-slate-100 disabled:text-slate-400"
             placeholder="Nhập mức tối đa"
           />
         </div>
@@ -293,65 +329,56 @@ export default function AuctionBidPanel({
         ) : null}
 
         {!autoBidError && autoBidAmount && canBid ? (
-          <div className="mt-2 text-xs text-emerald-600">
-            Mức tối đa hợp lệ cho auto bid.
+          <div className="mt-2 text-xs text-sky-700">
+            Hệ thống sẽ tự động đặt giá cho bạn đến tối đa{' '}
+            <span className="font-semibold">
+              {formatCurrency(autoBidAmount)}
+            </span>
+            .
           </div>
         ) : null}
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              setAutoBidAmount(
-                String(auction.minNextPrice + auction.stepPrice * 3),
-              )
-            }
-            disabled={!canBid}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-          >
-            Gợi ý: +3 bước
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setAutoBidAmount(
-                String(auction.minNextPrice + auction.stepPrice * 5),
-              )
-            }
-            disabled={!canBid}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-          >
-            Gợi ý: +5 bước
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={onOpenAutoBidConfirm}
-          disabled={
-            savingAutoBid || !autoBidAmount || !canBid || !!autoBidError
-          }
-          className="mt-4 w-full rounded-2xl bg-emerald-600 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {savingAutoBid
-            ? 'Đang xử lý...'
-            : autoBidEnabled
-              ? 'Cập nhật auto bid'
-              : 'Bật auto bid'}
-        </button>
-
-        {autoBidEnabled ? (
-          <button
-            type="button"
-            onClick={onDisableAutoBidConfirm}
-            disabled={disablingAutoBid}
-            className="mt-3 w-full rounded-2xl border border-rose-200 bg-white py-3 font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {disablingAutoBid ? 'Đang tắt...' : 'Tắt auto bid'}
-          </button>
+        {autoBidStatus?.currentlyOutbid ? (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Auto bid hiện không còn dẫn đầu. Bạn có thể tăng mức tối đa để tiếp
+            tục cạnh tranh.
+          </div>
         ) : null}
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onOpenAutoBidConfirm}
+            disabled={
+              savingAutoBid || !autoBidAmount || !canBid || !!autoBidError
+            }
+            className="flex-1 rounded-2xl bg-sky-600 py-3 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingAutoBid
+              ? 'Đang xử lý...'
+              : autoBidEnabled
+                ? 'Cập nhật auto bid'
+                : 'Bật auto bid'}
+          </button>
+
+          {autoBidEnabled ? (
+            <button
+              type="button"
+              onClick={onDisableAutoBidConfirm}
+              disabled={disablingAutoBid}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {disablingAutoBid ? 'Đang xử lý...' : 'Tắt'}
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {!canBid ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Phiên đấu giá hiện chưa ở trạng thái cho phép đặt giá.
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { auctionApi } from '../../api/auctionApi';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -312,7 +312,7 @@ export default function AuctionListPage() {
 
   const handleViewDetail = (auctionId) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate(`/home/auctions/${auctionId}`);
+    navigate(`/auctions/${auctionId}`);
   };
 
   const handleChangePage = (nextPage) => {
@@ -369,12 +369,20 @@ export default function AuctionListPage() {
 
   const goToAuctionDetail = (auctionId) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate(`/home/auctions/${auctionId}`);
+
+    navigate(`/bidder/auctions`, {
+      state: {
+        showSuccessToast: true,
+        message: 'Thanh toán thành công 🎉',
+      },
+    });
   };
 
   const handleJoinAuctionClick = (auction) => {
     openJoinModal(auction);
   };
+
+  const { refreshWallet } = useOutletContext();
 
   const handleConfirmDeposit = async () => {
     const currentAuctionId = joinModal.auctionId;
@@ -402,6 +410,7 @@ export default function AuctionListPage() {
         });
 
         await fetchAuctions();
+        await refreshWallet();
 
         if (joinResult?.paymentUrl) {
           window.location.href = joinResult.paymentUrl;

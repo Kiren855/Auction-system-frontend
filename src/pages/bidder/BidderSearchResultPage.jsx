@@ -295,7 +295,7 @@ export default function BidderSearchResultPage() {
 
   const handleViewDetail = (auctionId) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate(`/home/auctions/${auctionId}`);
+    navigate(`/auctions/${auctionId}`);
   };
 
   const handleChangePage = (nextPage) => {

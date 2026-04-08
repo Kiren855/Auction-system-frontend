@@ -57,28 +57,29 @@ const BidderLayout = () => {
     }
   }, [location.pathname, location.search]);
 
-  useEffect(() => {
-    const fetchWallet = async () => {
-      try {
-        setWalletLoading(true);
-        const response = await paymentApi.getMyWallet();
-        const result = getResponseData(response);
-        setWallet(result || null);
-      } catch (error) {
-        console.error('Get wallet failed:', error);
-        setWallet(null);
-      } finally {
-        setWalletLoading(false);
-      }
-    };
+  // Tách API gọi ví ra một hàm riêng biệt để tái sử dụng nhiều nơi
+  const fetchWallet = async () => {
+    try {
+      setWalletLoading(true);
+      const response = await paymentApi.getMyWallet();
+      const result = getResponseData(response);
+      setWallet(result || null);
+    } catch (error) {
+      console.error('Get wallet failed:', error);
+      setWallet(null);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchWallet();
   }, []);
 
   const dropdownItems = [
     {
       label: 'Trang chủ',
-      path: '/home/dashboard',
+      path: '/dashboard',
       icon: <LayoutDashboard size={16} />,
     },
     {
@@ -114,7 +115,7 @@ const BidderLayout = () => {
     const trimmed = searchKeyword.trim();
     if (!trimmed) return;
 
-    navigate(`/home/search?keyword=${encodeURIComponent(trimmed)}`);
+    navigate(`/search?keyword=${encodeURIComponent(trimmed)}`);
   };
 
   const handleSearchKeyDown = (event) => {
@@ -129,7 +130,7 @@ const BidderLayout = () => {
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex h-20 items-center justify-between gap-4">
             <button
-              onClick={() => navigate('/home/dashboard')}
+              onClick={() => navigate('/dashboard')}
               className="flex shrink-0 items-center gap-3"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-400 shadow-sm">
@@ -324,7 +325,8 @@ const BidderLayout = () => {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-6">
-        <Outlet />
+        {/* Đẩy context xuống các trang con nằm trong Outlet */}
+        <Outlet context={{ refreshWallet: fetchWallet }} />
       </main>
     </div>
   );

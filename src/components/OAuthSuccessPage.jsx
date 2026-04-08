@@ -18,7 +18,7 @@ const OAuthSuccessPage = () => {
 
       try {
         await loginWithToken(accessToken);
-        navigate('/home/dashboard', { replace: true });
+        navigate('/dashboard', { replace: true });
       } catch (error) {
         console.error('Google login failed:', error);
         navigate('/login', { replace: true });

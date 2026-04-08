@@ -33,11 +33,11 @@ const SellerLayout = () => {
   }, []);
 
   const menuItems = [
-    {
-      icon: <LayoutDashboard size={20} />,
-      label: 'Tổng quan',
-      path: '/seller/dashboard',
-    },
+    // {
+    //   icon: <LayoutDashboard size={20} />,
+    //   label: 'Tổng quan',
+    //   path: '/seller/dashboard',
+    // },
     {
       icon: <Gavel size={20} />,
       label: 'Phiên đấu giá của tôi',
@@ -57,7 +57,7 @@ const SellerLayout = () => {
 
   const handleGoDashboard = () => {
     setIsProfileOpen(false);
-    navigate('/home/dashboard');
+    navigate('/dashboard');
   };
 
   return (

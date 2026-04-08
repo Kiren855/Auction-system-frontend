@@ -23,19 +23,6 @@ const MainLayout = () => {
             SUNNY<span className="text-amber-500">BID</span>
           </span>
         </div>
-
-        {/* Search & Links (Optional for later) */}
-        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-          <button className="hover:text-slate-900 transition-colors">
-            Auctions
-          </button>
-          <button className="hover:text-slate-900 transition-colors">
-            Categories
-          </button>
-          <button className="hover:text-slate-900 transition-colors">
-            How it works
-          </button>
-        </div>
       </nav>
 
       {/* --- Main Content Area --- */}

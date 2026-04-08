@@ -69,17 +69,7 @@ function App() {
               />
             </Route>
 
-            <Route path="/bidder" element={<BidderLayout />}>
-              <Route path="auctions" element={<MyParticipatedAuctionsPage />} />
-              <Route
-                path="auctions/:auctionId"
-                element={<BidderAuctionRoom />}
-              />
-              <Route path="history" element={<WinningAuctionHistoryPage />} />
-              <Route path="won" element={<SellerAuctionPage />} />
-            </Route>
-
-            <Route path="/home" element={<BidderLayout />}>
+            <Route path="/" element={<BidderLayout />}>
               <Route path="dashboard" element={<BidderHomePage />} />
               <Route path="auctions" element={<AuctionListPage />} />
               <Route
@@ -87,6 +77,19 @@ function App() {
                 element={<AuctionDetailHomePage />}
               />
               <Route path="search" element={<BidderSearchResultPage />} />
+              <Route
+                path="bidder/auctions"
+                element={<MyParticipatedAuctionsPage />}
+              />
+              <Route
+                path="bidder/auctions/:auctionId"
+                element={<BidderAuctionRoom />}
+              />
+              <Route
+                path="bidder/history"
+                element={<WinningAuctionHistoryPage />}
+              />
+              <Route path="bidder/won" element={<SellerAuctionPage />} />
             </Route>
 
             <Route path="/profile" element={<ProfileLayout />}>

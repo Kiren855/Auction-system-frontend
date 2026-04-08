@@ -153,7 +153,7 @@ export default function AuctionProductPanel({ auction }) {
                 ))
               ) : (
                 <div className="text-sm text-slate-500 py-2">
-                  Chưa có thuộc tính.
+                  Chưa có thông tin thêm.
                 </div>
               )}
             </div>

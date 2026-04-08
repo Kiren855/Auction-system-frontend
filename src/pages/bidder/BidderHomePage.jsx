@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Flame,
   Clock3,
@@ -236,12 +236,12 @@ export default function HomePage() {
 
   const handleViewAll = () => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate('/home/auctions');
+    navigate('/auctions');
   };
 
   const handleViewDetail = (auctionId) => {
     window.scrollTo({ top: 0, behavior: 'auto' });
-    navigate(`/home/auctions/${auctionId}`);
+    navigate(`/auctions/${auctionId}`);
   };
 
   const openJoinModal = (auction) => {
@@ -301,6 +301,8 @@ export default function HomePage() {
     openJoinModal(auction);
   };
 
+  const { refreshWallet } = useOutletContext();
+
   const handleConfirmDeposit = async () => {
     try {
       setJoinModal((prev) => ({ ...prev, loading: true }));
@@ -322,6 +324,7 @@ export default function HomePage() {
           auctionPrice: 0,
         });
 
+        await refreshWallet();
         await fetchStats();
         await fetchAuctions();
 
@@ -461,14 +464,6 @@ export default function HomePage() {
                   ))
                 )}
               </div>
-
-              <button
-                onClick={handleViewAll}
-                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-300 transition-colors hover:text-amber-200"
-              >
-                Xem danh sách đầy đủ
-                <ArrowRight size={16} />
-              </button>
             </div>
           </div>
         </section>

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import {
+  Link,
+  useParams,
+  useNavigate,
+  useOutletContext,
+} from 'react-router-dom';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -167,6 +172,8 @@ export default function AuctionDetailHomePage() {
   const [clientAnchorMs, setClientAnchorMs] = useState(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
+  const navigate = useNavigate();
+
   const [joinModal, setJoinModal] = useState({
     isOpen: false,
     loading: false,
@@ -209,6 +216,10 @@ export default function AuctionDetailHomePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    navigate(-1);
   };
 
   useEffect(() => {
@@ -384,6 +395,8 @@ export default function AuctionDetailHomePage() {
     });
   };
 
+  const { refreshWallet } = useOutletContext();
+
   const handleConfirmDeposit = async () => {
     const currentAuctionId = joinModal.auctionId;
     const currentAuctionTitle = joinModal.auctionTitle;
@@ -412,12 +425,14 @@ export default function AuctionDetailHomePage() {
           auctionPrice: 0,
         });
 
+        await refreshWallet();
         if (paymentUrl) {
           window.location.href = paymentUrl;
           return;
         }
 
-        await fetchDetail();
+        navigate('/bidder/auctions');
+
         return;
       }
 
@@ -483,12 +498,13 @@ export default function AuctionDetailHomePage() {
     <div className="min-h-screen bg-slate-100 py-5 lg:py-8">
       <div className="mx-auto max-w-7xl px-4 lg:px-6">
         <div className="mb-5 flex items-start gap-3">
-          <Link
-            to="/home/auctions"
+          <button
+            type="button"
+            onClick={handleBack}
             className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
             <ArrowLeft size={18} />
-          </Link>
+          </button>
 
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold text-slate-900 lg:text-3xl">
@@ -671,7 +687,7 @@ export default function AuctionDetailHomePage() {
                       disabled={!canJoin}
                       className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm transition ${
                         canJoin
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          ? 'bg-slate-900 text-white hover:bg-black active:bg-slate-800' // <-- Thay đổi ở đây
                           : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
                       }`}
                     >
