@@ -23,11 +23,6 @@ const ProfileLayout = () => {
       label: 'Nạp tiền',
       path: '/profile/topup',
     },
-    {
-      icon: <Settings size={20} />,
-      label: 'Cài đặt',
-      path: '/profile/settings',
-    },
   ];
 
   return (
@@ -37,7 +32,7 @@ const ProfileLayout = () => {
           isCollapsed ? 'w-20' : 'w-64'
         } bg-slate-900 transition-all duration-300 flex flex-col fixed inset-y-0 z-50`}
       >
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
           {!isCollapsed && (
             <span className="text-white font-bold tracking-tight text-lg">
               TÀI KHOẢN
@@ -78,10 +73,10 @@ const ProfileLayout = () => {
           isCollapsed ? 'ml-20' : 'ml-64'
         }`}
       >
-        <header className="h-20 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
+        <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/seller/dashboard')}
+              onClick={() => navigate('/dashboard')}
               className="p-2 rounded-lg hover:bg-gray-100 transition"
             >
               <ArrowLeft size={20} className="text-gray-600" />

@@ -501,7 +501,7 @@ export default function WinningAuctionHistoryPage() {
     }));
 
   const handleViewDetail = (auction) => {
-    navigate(`/home/auctions/${auction.auctionId}`);
+    navigate(`/auctions/${auction.auctionId}`);
   };
 
   const handleChangePage = (nextPage) => {

@@ -21,24 +21,33 @@ export const profileApi = {
     });
   },
 
-  getAddresses: () => {
-    return axiosClient.get('/identity/api/v1/profile/address');
+  getAddresses() {
+    return axiosClient.get('/identity/api/v1/addresses/me');
   },
 
-  // Thêm địa chỉ mới
-  addAddress: (data) => {
-    return axiosClient.post('/identity/api/v1/profile/address', data);
+  createAddress(payload) {
+    return axiosClient.post('/identity/api/v1/addresses', payload);
   },
 
-  // Set địa chỉ mặc định
-  setDefaultAddress: (addressId) => {
-    return axiosClient.post(
-      `/identity/api/v1/profile/address/${addressId}/default`,
-    );
+  updateAddress(id, payload) {
+    return axiosClient.put(`/identity/api/v1/addresses/${id}`, payload);
   },
 
-  // Xoá địa chỉ
-  deleteAddress: (addressId) => {
-    return axiosClient.delete(`/identity/api/v1/profile/address/${addressId}`);
+  deleteAddress(id) {
+    return axiosClient.delete(`/identity/api/v1/addresses/${id}`);
+  },
+
+  setDefaultAddress(id) {
+    return axiosClient.put(`/identity/api/v1/addresses/${id}/default`);
+  },
+
+  getAdministrativeProvinces() {
+    return axiosClient.get('/identity/api/v1/administrative/provinces');
+  },
+
+  getAdministrativeWards(provinceCode) {
+    return axiosClient.get('/identity/api/v1/administrative/wards', {
+      params: { provinceCode },
+    });
   },
 };

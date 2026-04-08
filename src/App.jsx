@@ -28,6 +28,7 @@ import WinningAuctionHistoryPage from './pages/payment/WinningAuctionHistoryPage
 import { Toaster } from 'react-hot-toast';
 import SellerRevenuePage from './pages/seller/SellerRevenuePage';
 import WalletPage from './pages/payment/WalletPage';
+import SellerOrderManagementPage from './pages/seller/orders/SellerManagementPage';
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
             <Route path="/seller" element={<SellerLayout />}>
               <Route path="dashboard" element={<SellerDashboard />} />
               <Route path="revenue" element={<SellerRevenuePage />} />
+              <Route path="orders" element={<SellerOrderManagementPage />} />
               {/* Auction router */}
               <Route path="auctions" element={<SellerAuctionPage />} />
               <Route path="products" element={<ProductListPage />} />

@@ -7,7 +7,6 @@ import AuctionParticipantsTab from '../../components/auction/AuctionParticipants
 const TABS = [
   { key: 'detail', label: 'Chi tiết' },
   { key: 'participants', label: 'Người tham gia' },
-  { key: 'abnormal', label: 'Hoạt động bất thường' },
 ];
 
 function formatDuration(minutes) {
@@ -526,13 +525,6 @@ export default function AuctionDetailPage() {
 
                 {activeTab === 'participants' && (
                   <AuctionParticipantsTab auctionId={auctionId} />
-                )}
-
-                {activeTab === 'abnormal' && (
-                  <EmptyTab
-                    title="Hoạt động bất thường"
-                    desc="Tab này tạm thời chưa có dữ liệu."
-                  />
                 )}
               </>
             )}

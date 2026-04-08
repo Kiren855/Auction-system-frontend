@@ -1,4 +1,11 @@
-import { Wallet, CreditCard, AlertTriangle, Loader2, X } from 'lucide-react';
+import {
+  Wallet,
+  CreditCard,
+  AlertTriangle,
+  Loader2,
+  X,
+  Info,
+} from 'lucide-react';
 
 function ConfirmModal({
   isOpen,
@@ -28,7 +35,7 @@ function ConfirmModal({
     },
     default: {
       wrap: 'bg-slate-100 text-slate-600',
-      icon: <Wallet size={22} />,
+      icon: <Info size={22} />,
     },
   };
 

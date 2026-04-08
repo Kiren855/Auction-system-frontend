@@ -103,7 +103,7 @@ const BidderLayout = () => {
 
   const handleGoManagement = () => {
     setIsProfileOpen(false);
-    navigate('/seller/dashboard');
+    navigate('/seller/auctions');
   };
 
   const handleLogout = () => {

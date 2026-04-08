@@ -49,6 +49,11 @@ const SellerLayout = () => {
       path: '/seller/products',
     },
     {
+      icon: <Package size={20} />,
+      label: 'Đơn hàng đấu giá',
+      path: '/seller/orders',
+    },
+    {
       icon: <DollarSign size={20} />,
       label: 'Doanh thu',
       path: '/seller/revenue',
